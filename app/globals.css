@@ -1,0 +1,56 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@300;400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  --font-devanagari: "Noto Sans Devanagari", sans-serif;
+
+  /* Brand palette */
+  --clr-saffron: #ff6b00;
+  --clr-saffron-light: #fff3e6;
+  --clr-navy: #0f2e5e;
+  --clr-navy-mid: #1a3f7a;
+  --clr-navy-light: #e8eef8;
+  --clr-green: #2d7d4f;
+  --clr-green-light: #e8f5ee;
+  --clr-red: #c0392b;
+  --clr-red-light: #fdecea;
+  --clr-amber: #d97706;
+  --clr-amber-light: #fef3c7;
+  --clr-surface: #f7f8fc;
+  --clr-border: #dde3f0;
+  --clr-text: #1a1a2e;
+  --clr-text-secondary: #4a5568;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-devanagari);
+  font-size: 15px;
+  color: var(--clr-text);
+  background: var(--clr-surface);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--clr-border);
+}
+::-webkit-scrollbar-thumb {
+  background: #a0aec0;
+  border-radius: 3px;
+}

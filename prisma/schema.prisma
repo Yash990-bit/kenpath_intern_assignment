@@ -1,0 +1,97 @@
+// This is the Prisma schema for the Vridha Pension Review Tool.
+// Database: PostgreSQL (Neon/Supabase – no file persistence needed on Vercel)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model Officer {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  designation  String     @default("तहसीलदार")
+  createdAt    DateTime   @default(now())
+  auditLogs    AuditLog[]
+}
+
+model Application {
+  id String @id @default(cuid())
+
+  // Applicant details
+  applicantName     String
+  fatherHusbandName String
+  dob               DateTime
+  village           String
+  tehsil            String   @default("अंबाला")
+  district          String   @default("अंबाला")
+
+  // Masked identifiers (no real data)
+  aadhaarMasked     String // e.g. XXXX-XXXX-XXXX-4521
+  bankAccountHolder String
+  bankIFSC          String
+  bankAccountMasked String // e.g. XXXX4521
+
+  // Financial
+  annualIncome Int // in INR
+
+  // Documents – stored as a JSON array of strings
+  documentsSubmitted String[] // names of docs actually submitted
+
+  // Metadata
+  submittedAt DateTime
+  status      ApplicationStatus @default(PENDING)
+  priority    Priority          @default(NORMAL)
+  flagNote    String? // short reason why it is flagged HIGH
+
+  // AI analysis cache
+  aiAnalysis Json?
+  analyzedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs AuditLog[]
+}
+
+model AuditLog {
+  id            String @id @default(cuid())
+  applicationId String
+  officerId     String
+
+  action        String   // "स्वीकृत" | "अस्वीकृत" | "वापस" | "देखा"
+  aiSuggested   String?  // AI suggestion at the time ("APPROVE" | "REJECT" | "RETURN")
+  finalDecision String?  // Officer's decision ("APPROVE" | "REJECT" | "RETURN")
+  overridden    Boolean  @default(false) // true when finalDecision != aiSuggested
+  reason        String?  // mandatory for approve/reject/return
+
+  createdAt DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id])
+  officer     Officer     @relation(fields: [officerId], references: [id])
+
+  @@index([applicationId])
+  @@index([officerId])
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+}
+
+enum Priority {
+  HIGH
+  NORMAL
+}
