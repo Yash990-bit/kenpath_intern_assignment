@@ -165,18 +165,11 @@ export default async function DashboardPage() {
               return (
                 <tr
                   key={app.id}
+                  className="table-row-hover"
                   style={{
                     background: rowBg,
                     borderBottom: "1px solid var(--clr-border)",
-                    transition: "background 0.15s",
                   }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLTableRowElement).style.background =
-                      sla ? "#ffe8d6" : isHigh ? "#fef9e0" : "#f0f4ff")
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLTableRowElement).style.background = rowBg)
-                  }
                 >
                   <td style={{ padding: "0.85rem 0.75rem", textAlign: "center", color: "var(--clr-text-secondary)", fontWeight: 500 }}>
                     {idx + 1}

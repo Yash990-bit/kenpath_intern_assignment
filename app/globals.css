@@ -54,3 +54,10 @@ body {
   background: #a0aec0;
   border-radius: 3px;
 }
+
+.table-row-hover {
+  transition: background-color 0.15s ease;
+}
+.table-row-hover:hover {
+  background-color: #f0f4ff !important;
+}
