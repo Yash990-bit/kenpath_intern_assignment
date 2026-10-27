@@ -1780,8 +1780,10 @@ function KpiCard({
       onClick={onClick}
       style={{
         background: active ? "#ffffff" : "rgba(255, 255, 255, 0.9)",
-        border: `1.5px solid ${active ? accentColor : "#e2e8f0"}`,
         borderTop: `3.5px solid ${accentColor}`,
+        borderRight: `1.5px solid ${active ? accentColor : "#e2e8f0"}`,
+        borderBottom: `1.5px solid ${active ? accentColor : "#e2e8f0"}`,
+        borderLeft: `1.5px solid ${active ? accentColor : "#e2e8f0"}`,
         borderRadius: "16px",
         padding: "1.15rem 1rem",
         display: "flex",
