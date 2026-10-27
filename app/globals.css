@@ -1,25 +1,58 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 :root {
-  --font-devanagari: "Noto Sans Devanagari", sans-serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-devanagari: "Noto Sans Devanagari", "Plus Jakarta Sans", sans-serif;
 
-  /* Brand palette */
-  --clr-saffron: #ff6b00;
-  --clr-saffron-light: #fff3e6;
-  --clr-navy: #0f2e5e;
-  --clr-navy-mid: #1a3f7a;
-  --clr-navy-light: #e8eef8;
-  --clr-green: #2d7d4f;
-  --clr-green-light: #e8f5ee;
-  --clr-red: #c0392b;
-  --clr-red-light: #fdecea;
+  /* State Portal Executive Brand Palette */
+  --clr-navy: #0b1f3a;
+  --clr-navy-mid: #163660;
+  --clr-navy-hover: #1e4577;
+  --clr-navy-light: #f0f4f9;
+
+  --clr-saffron: #f97316;
+  --clr-saffron-dark: #c2410c;
+  --clr-saffron-light: #fff7ed;
+
+  --clr-green: #059669;
+  --clr-green-hover: #047857;
+  --clr-green-light: #ecfdf5;
+  --clr-green-border: #a7f3d0;
+
+  --clr-red: #dc2626;
+  --clr-red-hover: #b91c1c;
+  --clr-red-light: #fef2f2;
+  --clr-red-border: #fecaca;
+
   --clr-amber: #d97706;
-  --clr-amber-light: #fef3c7;
-  --clr-surface: #f7f8fc;
-  --clr-border: #dde3f0;
-  --clr-text: #1a1a2e;
-  --clr-text-secondary: #4a5568;
+  --clr-amber-hover: #b45309;
+  --clr-amber-light: #fffbeb;
+  --clr-amber-border: #fde68a;
+
+  --clr-ai: #6366f1;
+  --clr-ai-hover: #4f46e5;
+  --clr-ai-light: #eef2ff;
+  --clr-ai-border: #c7d2fe;
+
+  --clr-surface: #f8fafc;
+  --clr-surface-card: #ffffff;
+  --clr-surface-muted: #f1f5f9;
+  --clr-border: #e2e8f0;
+  --clr-border-subtle: #f1f5f9;
+
+  --clr-text: #0f172a;
+  --clr-text-secondary: #475569;
+  --clr-text-muted: #94a3b8;
+
+  /* Modern Ambient Elevation */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 3px rgba(15, 46, 94, 0.04), 0 4px 14px rgba(15, 46, 94, 0.05);
+  --shadow-elevated: 0 12px 28px -4px rgba(15, 46, 94, 0.08), 0 4px 12px -2px rgba(15, 46, 94, 0.04);
+  --shadow-modal: 0 25px 50px -12px rgba(11, 31, 58, 0.25);
+  --shadow-glow-ai: 0 0 20px -2px rgba(99, 102, 241, 0.22);
+  --shadow-glow-emerald: 0 0 16px -2px rgba(5, 150, 105, 0.2);
+  --shadow-glow-crimson: 0 0 16px -2px rgba(220, 38, 38, 0.2);
 }
 
 *,
@@ -34,30 +67,93 @@ html {
   font-family: var(--font-devanagari);
   font-size: 15px;
   color: var(--clr-text);
-  background: var(--clr-surface);
+  background-color: var(--clr-surface);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   min-height: 100dvh;
+  color: var(--clr-text);
+  background-color: var(--clr-surface);
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--clr-border);
-}
-::-webkit-scrollbar-thumb {
-  background: #a0aec0;
-  border-radius: 3px;
+/* Glass & Card Utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
+.executive-card {
+  background: var(--clr-surface-card);
+  border: 1px solid var(--clr-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.executive-card:hover {
+  box-shadow: var(--shadow-elevated);
+  border-color: #cbd5e1;
+}
+
+/* Table Hover Effect */
 .table-row-hover {
   transition: background-color 0.15s ease;
 }
+
 .table-row-hover:hover {
-  background-color: #f0f4ff !important;
+  background-color: #f1f5fd !important;
+}
+
+/* Tricolor Government Ribbon */
+.gov-ribbon {
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    #ff6b00 0%,
+    #ff6b00 33.3%,
+    #ffffff 33.3%,
+    #ffffff 66.6%,
+    #138808 66.6%,
+    #138808 100%
+  );
+}
+
+/* Pulsing Dots */
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+}
+
+.pulse-dot {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("demo1234");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [justAutofilled, setJustAutofilled] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,80 +33,210 @@ export default function LoginPage() {
     }
   }
 
+  function handleAutoFill() {
+    setEmail("officer@demo.gov.in");
+    setPassword("demo1234");
+    setError("");
+    setJustAutofilled(true);
+    setTimeout(() => setJustAutofilled(false), 2000);
+  }
+
   return (
     <div className="login-root">
+      {/* Top Subtle Tricolor Bar */}
+      <div className="gov-ribbon fixed top-0 left-0 right-0 z-50" />
+
+      {/* Left Showcase Hero Panel */}
       <div className="login-left">
-        <div className="login-branding">
-          <div className="login-emblem">🏛️</div>
-          <h1 className="login-title">वृद्धा पेंशन<br />समीक्षा प्रणाली</h1>
-          <p className="login-subtitle">हरियाणा सरकार — समाज कल्याण विभाग</p>
-          <div className="login-info-pills">
-            <span className="pill">तहसील/ब्लॉक स्तर</span>
-            <span className="pill">AI-सहायक समीक्षा</span>
+        <div className="login-left-content">
+          {/* Official Emblem & Department Banner */}
+          <div className="emblem-wrapper">
+            <div className="emblem-shield">
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="emblem-svg"
+              >
+                <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" />
+                <path d="M12 6v12" />
+                <path d="M8 10h8" />
+                <path d="M8 14h8" />
+              </svg>
+            </div>
+            <div>
+              <div className="dept-tag">हरियाणा सरकार • समाज कल्याण विभाग</div>
+              <div className="state-tag">GOVERNMENT OF HARYANA</div>
+            </div>
+          </div>
+
+          <div className="hero-text-block">
+            <h1 className="hero-main-title">
+              वृद्धावस्था सम्मान भत्ता
+              <span className="hero-title-highlight"> समीक्षा एवं निर्णय पोर्टल</span>
+            </h1>
+            <p className="hero-subtitle">
+              हरियाणा वृद्धा पेंशन योजना के अंतर्गत आवेदनों के त्वरित, पारदर्शी एवं
+              AI-सहायक सत्यापन हेतु अधिकृत तहसील/ब्लॉक अधिकारी मंच।
+            </p>
+          </div>
+
+          {/* Feature Highlights Bento Cards */}
+          <div className="features-grid">
+            <div className="feature-card">
+              <div className="feature-icon ai-glow">🤖</div>
+              <div>
+                <div className="feature-title">Google Gemini AI सह-पायलट</div>
+                <div className="feature-desc">
+                  पात्रता नियम, आयु (60+ वर्ष) व बैंक खाते के नाम की विसंगति का स्वतः विश्लेषण
+                </div>
+              </div>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon sla-glow">⏱️</div>
+              <div>
+                <div className="feature-title">SLA समय-सीमा ट्रैकिंग (30 दिन)</div>
+                <div className="feature-desc">
+                  सेवा का अधिकार अधिनियम के अंतर्गत प्राथमिकता क्रमबद्ध कार्यप्रवाह
+                </div>
+              </div>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon audit-glow">🛡️</div>
+              <div>
+                <div className="feature-title">अपरिवर्तनीय डिजिटल ऑडिट ट्रेल</div>
+                <div className="feature-desc">
+                  तहसीलदार व नोडल अधिकारी के प्रत्येक अनुमोदन व अस्वीकृति का समय-अंकित रिकॉर्ड
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Live System Indicator */}
+          <div className="system-status-strip">
+            <div className="status-pill">
+              <span className="live-dot pulse-dot"></span>
+              <span>Neon PostgreSQL Cloud • 20 लाइव आवेदन सुरक्षित</span>
+            </div>
+            <div className="status-badge-hry">डिजिटल हरियाणा मिशन 2026</div>
           </div>
         </div>
       </div>
 
+      {/* Right Login Station */}
       <div className="login-right">
-        <form className="login-card" onSubmit={handleSubmit}>
-          <div className="login-card-header">
-            <span className="login-card-icon">🔐</span>
-            <h2 className="login-card-title">अधिकारी लॉगिन</h2>
-            <p className="login-card-desc">अपनी साख दर्ज करें</p>
-          </div>
-
-          {error && (
-            <div className="login-error" role="alert">
-              ⚠️ {error}
+        <div className="login-box-container">
+          {/* Quick Demo Autofill Banner */}
+          <div className="demo-callout-card">
+            <div className="demo-callout-header">
+              <div className="demo-icon">⚡</div>
+              <div>
+                <div className="demo-title">मूल्यांकनकर्ता / समीक्षक हेतु त्वरित लॉगिन</div>
+                <div className="demo-sub">तहसीलदार डेमो क्रेडेंशियल्स एक क्लिक में भरें</div>
+              </div>
             </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="email" className="form-label">
-              ईमेल पता
-            </label>
-            <input
-              id="email"
-              type="email"
-              className="form-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="officer@demo.gov.in"
-              required
-              autoComplete="email"
-            />
+            <button
+              type="button"
+              onClick={handleAutoFill}
+              className={`btn-autofill ${justAutofilled ? "autofill-active" : ""}`}
+            >
+              {justAutofilled ? "✓ क्रेडेंशियल्स भरे गए!" : "1-क्लिक ऑटोफिल (Auto-Fill Demo)"}
+            </button>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password" className="form-label">
-              पासवर्ड
-            </label>
-            <input
-              id="password"
-              type="password"
-              className="form-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              autoComplete="current-password"
-            />
-          </div>
+          <form className="login-card" onSubmit={handleSubmit}>
+            <div className="login-card-header">
+              <div className="card-badge">
+                <span className="lock-icon">🔐</span>
+                <span>अधिकारी अधिकृत प्रवेश</span>
+              </div>
+              <h2 className="login-card-title">पोर्टल में प्रवेश करें</h2>
+              <p className="login-card-desc">
+                पेंशन समीक्षा प्रणाली तक पहुँचने के लिए अपनी शासकीय साख दर्ज करें
+              </p>
+            </div>
 
-          <button
-            type="submit"
-            className="btn-primary btn-full"
-            disabled={loading}
-          >
-            {loading ? "प्रमाणीकरण हो रहा है…" : "लॉगिन करें"}
-          </button>
+            {error && (
+              <div className="login-error-alert" role="alert">
+                <span className="error-icon">⚠️</span>
+                <span>{error}</span>
+              </div>
+            )}
 
-          <div className="login-demo-hint">
-            <span>डेमो साख:</span>
-            <code>officer@demo.gov.in</code>
-            <code>demo1234</code>
-          </div>
-        </form>
+            <div className="form-group">
+              <label htmlFor="email" className="form-label">
+                शासकीय ईमेल पता
+              </label>
+              <div className="input-with-icon">
+                <span className="field-icon">✉️</span>
+                <input
+                  id="email"
+                  type="email"
+                  className="form-input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="officer@demo.gov.in"
+                  required
+                  autoComplete="email"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password" className="form-label">
+                पासवर्ड (Secret Key)
+              </label>
+              <div className="input-with-icon">
+                <span className="field-icon">🔑</span>
+                <input
+                  id="password"
+                  type="password"
+                  className="form-input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="btn-submit"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="loading-spinner-wrap">
+                  <span className="spinner-border"></span>
+                  प्रमाणीकरण हो रहा है…
+                </span>
+              ) : (
+                <span>लॉगिन करें (सुरक्षित प्रवेश) →</span>
+              )}
+            </button>
+
+            <div className="login-security-footer">
+              <div className="security-icon-row">
+                <span>🔒 256-Bit SSL एन्क्रिप्टेड</span>
+                <span>•</span>
+                <span>JWT सेशन</span>
+                <span>•</span>
+                <span>राज्य डेटा केंद्र (SDC)</span>
+              </div>
+              <p className="legal-notice">
+                यह प्रणाली केवल अधिकृत सरकारी अधिकारियों के शासकीय उपयोग के लिए है।
+              </p>
+            </div>
+          </form>
+        </div>
       </div>
 
       <style jsx>{`
@@ -113,190 +244,452 @@ export default function LoginPage() {
           display: flex;
           min-height: 100dvh;
           font-family: var(--font-devanagari);
+          background-color: var(--clr-surface);
         }
 
-        /* Left panel */
+        /* Left Showcase Panel */
         .login-left {
-          flex: 1;
-          background: linear-gradient(145deg, #0f2e5e 0%, #1a3f7a 60%, #ff6b00 140%);
+          flex: 1.15;
+          background: linear-gradient(155deg, #07152b 0%, #0b1f3a 50%, #153763 100%);
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 3rem;
+          padding: 3.5rem 3rem;
           position: relative;
+          color: white;
           overflow: hidden;
         }
+
         .login-left::before {
           content: "";
           position: absolute;
           inset: 0;
-          background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+          background: radial-gradient(circle at 10% 20%, rgba(249, 115, 22, 0.08) 0%, transparent 40%),
+            radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.12) 0%, transparent 45%);
+          pointer-events: none;
         }
 
-        .login-branding {
+        .login-left-content {
+          max-width: 600px;
           position: relative;
-          text-align: center;
-          color: white;
-        }
-        .login-emblem {
-          font-size: 4rem;
-          margin-bottom: 1.5rem;
-          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
-        }
-        .login-title {
-          font-size: 2.2rem;
-          font-weight: 700;
-          line-height: 1.3;
-          margin-bottom: 0.75rem;
-          text-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-        .login-subtitle {
-          font-size: 0.95rem;
-          opacity: 0.8;
-          margin-bottom: 2rem;
-        }
-        .login-info-pills {
+          z-index: 1;
           display: flex;
-          gap: 0.75rem;
-          justify-content: center;
-          flex-wrap: wrap;
-        }
-        .pill {
-          background: rgba(255,255,255,0.15);
-          border: 1px solid rgba(255,255,255,0.25);
-          border-radius: 999px;
-          padding: 0.35rem 1rem;
-          font-size: 0.82rem;
-          backdrop-filter: blur(4px);
+          flex-direction: column;
+          gap: 2rem;
         }
 
-        /* Right panel */
-        .login-right {
-          width: min(480px, 100%);
+        .emblem-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 1.25rem;
+        }
+
+        .emblem-shield {
+          width: 58px;
+          height: 58px;
+          border-radius: 14px;
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
+          border: 1px solid rgba(255, 255, 255, 0.2);
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 2rem;
+          color: #fbd38d;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .dept-tag {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: #fbd38d;
+          letter-spacing: 0.02em;
+        }
+
+        .state-tag {
+          font-size: 0.72rem;
+          letter-spacing: 0.12em;
+          color: rgba(255, 255, 255, 0.6);
+          font-family: var(--font-sans);
+          font-weight: 600;
+        }
+
+        .hero-main-title {
+          font-size: 2.35rem;
+          font-weight: 700;
+          line-height: 1.25;
+          letter-spacing: -0.01em;
+          color: #ffffff;
+        }
+
+        .hero-title-highlight {
+          display: block;
+          background: linear-gradient(90deg, #fbd38d 0%, #ffedd5 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+          font-size: 0.95rem;
+          line-height: 1.6;
+          color: rgba(255, 255, 255, 0.8);
+          margin-top: 0.5rem;
+        }
+
+        /* Features Grid */
+        .features-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 0.85rem;
+        }
+
+        .feature-card {
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(8px);
+          border-radius: 12px;
+          padding: 0.9rem 1.15rem;
+          display: flex;
+          align-items: flex-start;
+          gap: 1rem;
+          transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+
+        .feature-card:hover {
+          background: rgba(255, 255, 255, 0.1);
+          transform: translateX(4px);
+        }
+
+        .feature-icon {
+          font-size: 1.4rem;
+          width: 36px;
+          height: 36px;
+          border-radius: 9px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255, 255, 255, 0.1);
+          flex-shrink: 0;
+        }
+
+        .feature-title {
+          font-weight: 600;
+          font-size: 0.92rem;
+          color: #ffffff;
+        }
+
+        .feature-desc {
+          font-size: 0.8rem;
+          color: rgba(255, 255, 255, 0.7);
+          line-height: 1.4;
+          margin-top: 0.15rem;
+        }
+
+        /* System Status */
+        .system-status-strip {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-top: 1rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.15);
+          font-size: 0.78rem;
+          color: rgba(255, 255, 255, 0.7);
+        }
+
+        .status-pill {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .live-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #10b981;
+          box-shadow: 0 0 10px #10b981;
+        }
+
+        .status-badge-hry {
+          background: rgba(251, 211, 141, 0.15);
+          color: #fbd38d;
+          border: 1px solid rgba(251, 211, 141, 0.3);
+          border-radius: 6px;
+          padding: 0.2rem 0.6rem;
+          font-weight: 500;
+        }
+
+        /* Right Login Panel */
+        .login-right {
+          flex: 0.95;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem 2rem;
           background: var(--clr-surface);
         }
 
-        /* Card */
-        .login-card {
+        .login-box-container {
           width: 100%;
-          max-width: 400px;
-          background: white;
-          border-radius: 16px;
-          padding: 2.5rem;
-          box-shadow: 0 4px 40px rgba(15,46,94,0.12);
+          max-width: 440px;
           display: flex;
           flex-direction: column;
           gap: 1.25rem;
         }
+
+        /* Demo Callout */
+        .demo-callout-card {
+          background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+          border: 1.5px solid #bfdbfe;
+          border-radius: 14px;
+          padding: 1.15rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          box-shadow: var(--shadow-sm);
+        }
+
+        .demo-callout-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .demo-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          background: #3b82f6;
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1rem;
+          flex-shrink: 0;
+        }
+
+        .demo-title {
+          font-weight: 700;
+          font-size: 0.88rem;
+          color: #1e3a8a;
+        }
+
+        .demo-sub {
+          font-size: 0.76rem;
+          color: #475569;
+        }
+
+        .btn-autofill {
+          background: #ffffff;
+          border: 1.5px solid #93c5fd;
+          border-radius: 8px;
+          padding: 0.55rem 1rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: #1d4ed8;
+          cursor: pointer;
+          transition: all 0.18s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .btn-autofill:hover {
+          background: #1d4ed8;
+          color: #ffffff;
+          border-color: #1d4ed8;
+          transform: translateY(-1px);
+        }
+
+        .autofill-active {
+          background: #059669 !important;
+          color: #ffffff !important;
+          border-color: #059669 !important;
+        }
+
+        /* Main Login Card */
+        .login-card {
+          background: #ffffff;
+          border: 1px solid var(--clr-border);
+          border-radius: 16px;
+          padding: 2.25rem;
+          box-shadow: var(--shadow-elevated);
+          display: flex;
+          flex-direction: column;
+          gap: 1.35rem;
+        }
+
         .login-card-header {
-          text-align: center;
-          margin-bottom: 0.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
         }
-        .login-card-icon {
-          font-size: 2.5rem;
-          display: block;
-          margin-bottom: 0.75rem;
+
+        .card-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          background: var(--clr-navy-light);
+          color: var(--clr-navy);
+          border: 1px solid #c7d7eb;
+          border-radius: 999px;
+          padding: 0.2rem 0.75rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          width: fit-content;
         }
+
         .login-card-title {
-          font-size: 1.5rem;
+          font-size: 1.55rem;
           font-weight: 700;
           color: var(--clr-navy);
-        }
-        .login-card-desc {
-          font-size: 0.88rem;
-          color: var(--clr-text-secondary);
+          letter-spacing: -0.01em;
           margin-top: 0.25rem;
         }
 
-        .login-error {
-          background: var(--clr-red-light);
-          border: 1px solid #f5c6c2;
-          border-radius: 8px;
-          padding: 0.75rem 1rem;
-          color: var(--clr-red);
-          font-size: 0.9rem;
+        .login-card-desc {
+          font-size: 0.85rem;
+          color: var(--clr-text-secondary);
         }
 
-        /* Form elements */
+        .login-error-alert {
+          background: var(--clr-red-light);
+          border: 1px solid var(--clr-red-border);
+          border-radius: 10px;
+          padding: 0.8rem 1rem;
+          color: var(--clr-red);
+          font-size: 0.86rem;
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+        }
+
         .form-group {
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
+          gap: 0.45rem;
         }
+
         .form-label {
-          font-size: 0.88rem;
+          font-size: 0.86rem;
           font-weight: 600;
-          color: var(--clr-text-secondary);
+          color: #1e293b;
         }
+
+        .input-with-icon {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .field-icon {
+          position: absolute;
+          left: 1rem;
+          font-size: 1rem;
+          pointer-events: none;
+          opacity: 0.7;
+        }
+
         .form-input {
+          width: 100%;
           border: 1.5px solid var(--clr-border);
-          border-radius: 8px;
-          padding: 0.7rem 1rem;
+          border-radius: 10px;
+          padding: 0.75rem 1rem 0.75rem 2.85rem;
           font-family: var(--font-devanagari);
           font-size: 0.95rem;
           color: var(--clr-text);
-          background: var(--clr-surface);
-          transition: border-color 0.2s, box-shadow 0.2s;
+          background: #ffffff;
+          transition: border-color 0.18s ease, box-shadow 0.18s ease;
           outline: none;
         }
+
         .form-input:focus {
-          border-color: var(--clr-navy-mid);
-          box-shadow: 0 0 0 3px rgba(15,46,94,0.1);
+          border-color: #2563eb;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
 
-        /* Buttons */
-        .btn-primary {
-          background: linear-gradient(135deg, var(--clr-navy) 0%, var(--clr-navy-mid) 100%);
-          color: white;
+        .btn-submit {
+          background: linear-gradient(135deg, #0b1f3a 0%, #163660 100%);
+          color: #ffffff;
           border: none;
-          border-radius: 8px;
-          padding: 0.85rem 1.5rem;
+          border-radius: 10px;
+          padding: 0.95rem 1.5rem;
           font-family: var(--font-devanagari);
           font-size: 1rem;
           font-weight: 600;
           cursor: pointer;
-          transition: opacity 0.2s, transform 0.15s;
-        }
-        .btn-primary:hover:not(:disabled) {
-          opacity: 0.92;
-          transform: translateY(-1px);
-        }
-        .btn-primary:disabled {
-          opacity: 0.65;
-          cursor: not-allowed;
-        }
-        .btn-full {
-          width: 100%;
-        }
-
-        .login-demo-hint {
+          transition: all 0.2s ease;
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
           justify-content: center;
-          font-size: 0.78rem;
-          color: var(--clr-text-secondary);
-          background: var(--clr-navy-light);
-          border-radius: 8px;
-          padding: 0.6rem 1rem;
-        }
-        .login-demo-hint code {
-          background: white;
-          border: 1px solid var(--clr-border);
-          border-radius: 4px;
-          padding: 0.15rem 0.5rem;
-          font-size: 0.78rem;
-          color: var(--clr-navy);
+          box-shadow: 0 4px 12px rgba(11, 31, 58, 0.2);
         }
 
-        @media (max-width: 700px) {
-          .login-left { display: none; }
-          .login-right { width: 100%; }
+        .btn-submit:hover:not(:disabled) {
+          background: linear-gradient(135deg, #102a4e 0%, #1e4577 100%);
+          transform: translateY(-1.5px);
+          box-shadow: 0 6px 16px rgba(11, 31, 58, 0.28);
+        }
+
+        .btn-submit:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+
+        .loading-spinner-wrap {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+        }
+
+        .spinner-border {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        .login-security-footer {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          text-align: center;
+          margin-top: 0.5rem;
+        }
+
+        .security-icon-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          font-size: 0.72rem;
+          color: var(--clr-text-muted);
+          font-weight: 500;
+          font-family: var(--font-sans);
+        }
+
+        .legal-notice {
+          font-size: 0.72rem;
+          color: var(--clr-text-muted);
+          line-height: 1.4;
+        }
+
+        @media (max-width: 900px) {
+          .login-root {
+            flex-direction: column;
+          }
+          .login-left {
+            padding: 3rem 1.5rem;
+          }
+          .login-right {
+            padding: 2rem 1.25rem;
+          }
         }
       `}</style>
     </div>
