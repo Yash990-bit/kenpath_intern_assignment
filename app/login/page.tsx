@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import GovEmblem from "@/components/GovEmblem";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -52,24 +53,7 @@ export default function LoginPage() {
         <div className="login-left-content">
           {/* Official Emblem & Department Banner */}
           <div className="emblem-wrapper">
-            <div className="emblem-shield">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="emblem-svg"
-              >
-                <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" />
-                <path d="M12 6v12" />
-                <path d="M8 10h8" />
-                <path d="M8 14h8" />
-              </svg>
-            </div>
+            <GovEmblem size={64} style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))", flexShrink: 0 }} />
             <div>
               <div className="dept-tag">हरियाणा सरकार • समाज कल्याण विभाग</div>
               <div className="state-tag">GOVERNMENT OF HARYANA</div>

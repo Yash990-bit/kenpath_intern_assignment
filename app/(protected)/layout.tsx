@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { signOut } from "@/auth";
 import Link from "next/link";
+import GovEmblem from "@/components/GovEmblem";
 
 export const instant = false;
 
@@ -59,22 +60,7 @@ export default async function ProtectedLayout({
               color: "inherit",
             }}
           >
-            <div
-              style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "10px",
-                background: "linear-gradient(135deg, rgba(251, 211, 141, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%)",
-                border: "1px solid rgba(251, 211, 141, 0.3)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1.3rem",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-              }}
-            >
-              🏛️
-            </div>
+            <GovEmblem size={44} style={{ flexShrink: 0 }} />
             <div>
               <div
                 style={{
@@ -237,7 +223,8 @@ export default async function ProtectedLayout({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-          <span>🏛️ हरियाणा वृद्धावस्था सम्मान भत्ता नियम, 1991</span>
+          <GovEmblem size={22} style={{ flexShrink: 0 }} />
+          <span>हरियाणा वृद्धावस्था सम्मान भत्ता नियम, 1991</span>
           <span>•</span>
           <span>हरियाणा सेवा का अधिकार अधिनियम, 2014</span>
         </div>

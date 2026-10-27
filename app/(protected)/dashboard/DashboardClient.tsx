@@ -6,6 +6,7 @@ import { Application, ApplicationStatus } from "@prisma/client";
 import { SLA_BREACH_DAYS, isSlaBreached } from "@/lib/eligibility";
 import { calculateUrgencyScore } from "@/lib/urgency";
 import { calculateAge } from "@/lib/ai";
+import GovEmblem from "@/components/GovEmblem";
 
 export interface DashboardAppItem extends Application {
   _count: {
@@ -152,7 +153,7 @@ export default function DashboardClient({
         <div className="hero-left">
           <div className="hero-salutation">
             <span className="hero-badge">
-              <span className="badge-sparkle">🏛️</span> हरियाणा समाज कल्याण पोर्टल
+              <GovEmblem size={22} style={{ marginRight: "6px", flexShrink: 0 }} /> हरियाणा समाज कल्याण पोर्टल
             </span>
             <span className="hero-date">
               📅 {new Date().toLocaleDateString("hi-IN", {
@@ -407,11 +408,11 @@ export default function DashboardClient({
         </div>
       ) : viewMode === "table" ? (
         /* ─── Ultra-Clean Modern Table View ──────────────────────────────── */
-        <div className="table-container executive-card">
+        <div className="table-container">
           <table className="modern-table">
             <thead>
               <tr className="table-head-row">
-                <th style={{ width: "48px", textAlign: "center" }}>#</th>
+                <th style={{ width: "52px", textAlign: "center" }}>#</th>
                 <th>आवेदक विवरण</th>
                 <th>गाँव / तहसील</th>
                 <th style={{ textAlign: "center" }}>आयु (पात्रता)</th>
@@ -419,7 +420,7 @@ export default function DashboardClient({
                 <th style={{ textAlign: "center" }}>प्रतीक्षा काल / SLA</th>
                 <th style={{ textAlign: "center" }}>स्थिति</th>
                 <th style={{ textAlign: "center" }}>प्राथमिकता</th>
-                <th style={{ textAlign: "center", width: "135px" }}>कार्यवाही</th>
+                <th style={{ textAlign: "center", width: "145px" }}>कार्यवाही</th>
               </tr>
             </thead>
             <tbody>
@@ -427,6 +428,8 @@ export default function DashboardClient({
                 const days = daysSince(app.submittedAt);
                 const sla = isSlaBreached(new Date(app.submittedAt), app.status);
                 const isHigh = app.priority === "HIGH" && app.status === "PENDING";
+                const isApproved = app.status === "APPROVED";
+                const isRejected = app.status === "REJECTED";
                 const age = calculateAge(new Date(app.dob));
                 const statusStyle = STATUS_PILL_STYLES[app.status];
                 const slaPercent = Math.min(Math.round((days / SLA_BREACH_DAYS) * 100), 100);
@@ -434,9 +437,23 @@ export default function DashboardClient({
                 return (
                   <tr
                     key={app.id}
-                    className={`table-row-hover ${sla ? "row-sla-breached" : isHigh ? "row-high-priority" : ""}`}
+                    className={`table-row-card ${
+                      sla
+                        ? "row-sla-breached"
+                        : isHigh
+                        ? "row-high-priority"
+                        : isApproved
+                        ? "row-approved"
+                        : isRejected
+                        ? "row-rejected"
+                        : "row-normal"
+                    }`}
                   >
-                    <td className="cell-index">{idx + 1}</td>
+                    <td className="cell-index">
+                      <span className={`index-badge ${sla ? "index-sla" : isHigh ? "index-high" : ""}`}>
+                        {idx + 1}
+                      </span>
+                    </td>
 
                     {/* Applicant Name & Masked Info */}
                     <td className="cell-applicant">
@@ -1162,62 +1179,156 @@ export default function DashboardClient({
           cursor: pointer;
         }
 
-        /* Table Styling */
+        /* Floating Card Table Rows */
         .table-container {
           overflow-x: auto;
-          background: #ffffff;
-          border: 1px solid var(--clr-border);
-          border-radius: 16px;
-          box-shadow: var(--shadow-card);
+          background: transparent;
+          border: none;
+          box-shadow: none;
+          padding: 0.25rem 0.15rem;
         }
 
         .modern-table {
           width: 100%;
           border-collapse: separate;
-          border-spacing: 0;
+          border-spacing: 0 10px;
           font-size: 0.88rem;
           text-align: left;
         }
 
-        .table-head-row {
-          background: #f8fafc;
-          border-bottom: 2px solid #e2e8f0;
-        }
-
         .table-head-row th {
-          padding: 1rem 0.95rem;
+          padding: 0.5rem 1rem;
           font-weight: 700;
-          font-size: 0.8rem;
-          color: #475569;
-          letter-spacing: 0.02em;
+          font-size: 0.76rem;
+          color: #64748b;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
           white-space: nowrap;
-          border-bottom: 2px solid #e2e8f0;
+          border: none;
+          background: transparent;
         }
 
-        .modern-table td {
-          padding: 1rem 0.95rem;
-          border-bottom: 1px solid #f1f5f9;
+        .table-row-card {
+          transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .table-row-card:hover {
+          transform: translateY(-2px);
+        }
+
+        .table-row-card td {
+          padding: 1.15rem 1rem;
+          border-top: 1px solid #e2e8f0;
+          border-bottom: 1px solid #e2e8f0;
+          vertical-align: middle;
+          background: #ffffff;
+          box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+          transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .table-row-card:hover td {
+          background: #fafbfc;
+          border-top-color: #cbd5e1;
+          border-bottom-color: #cbd5e1;
+          box-shadow: 0 10px 24px -4px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.03);
+        }
+
+        .table-row-card td:first-child {
+          border-top-left-radius: 14px;
+          border-bottom-left-radius: 14px;
+          border-left: 5px solid #3b82f6; /* Blue default stripe */
+        }
+
+        .table-row-card td:last-child {
+          border-top-right-radius: 14px;
+          border-bottom-right-radius: 14px;
+          border-right: 1px solid #e2e8f0;
+        }
+
+        /* SLA Breached Row */
+        .row-sla-breached td {
+          background: #fffcfc !important;
+          border-top-color: #fecaca;
+          border-bottom-color: #fecaca;
+        }
+
+        .row-sla-breached:hover td {
+          background: #fff5f5 !important;
+          border-top-color: #fca5a5;
+          border-bottom-color: #fca5a5;
+        }
+
+        .row-sla-breached td:first-child {
+          border-left: 5px solid #ef4444 !important;
+        }
+
+        .row-sla-breached td:last-child {
+          border-right: 1px solid #fecaca;
+        }
+
+        /* High Priority Row */
+        .row-high-priority td {
+          background: #fffdfa !important;
+          border-top-color: #fde68a;
+          border-bottom-color: #fde68a;
+        }
+
+        .row-high-priority:hover td {
+          background: #fffbeb !important;
+          border-top-color: #fcd34d;
+          border-bottom-color: #fcd34d;
+        }
+
+        .row-high-priority td:first-child {
+          border-left: 5px solid #f59e0b !important;
+        }
+
+        .row-high-priority td:last-child {
+          border-right: 1px solid #fde68a;
+        }
+
+        /* Approved Row */
+        .row-approved td:first-child {
+          border-left: 5px solid #10b981 !important;
+        }
+
+        /* Rejected Row */
+        .row-rejected td:first-child {
+          border-left: 5px solid #94a3b8 !important;
+        }
+
+        /* Index badge */
+        .cell-index {
+          text-align: center;
           vertical-align: middle;
         }
 
-        .modern-table tbody tr:last-child td {
-          border-bottom: none;
-        }
-
-        .row-sla-breached {
-          background: #fff8f8 !important;
-        }
-
-        .row-high-priority {
-          background: #fffef2 !important;
-        }
-
-        .cell-index {
-          text-align: center;
+        .index-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          background: #f1f5f9;
+          color: #475569;
           font-weight: 700;
-          color: #94a3b8;
+          font-size: 0.8rem;
           font-family: var(--font-sans);
-          font-size: 0.82rem;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .index-sla {
+          background: #fee2e2;
+          color: #b91c1c;
+          border-color: #fca5a5;
+        }
+
+        .index-high {
+          background: #fef3c7;
+          color: #b45309;
+          border-color: #fde68a;
         }
 
         .applicant-flex {
@@ -1430,33 +1541,35 @@ export default function DashboardClient({
         }
 
         /* Action Button */
-        .btn-action-review {
-          background: linear-gradient(135deg, #1e3a8a 0%, #0b1f3a 100%);
-          color: #ffffff;
-          padding: 0.55rem 0.95rem;
-          border-radius: 10px;
-          font-size: 0.82rem;
-          font-weight: 700;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          transition: all 0.18s ease;
-          box-shadow: 0 2px 6px rgba(11, 31, 58, 0.2);
-          border: 1px solid rgba(255, 255, 255, 0.15);
+        :global(.btn-action-review) {
+          background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%) !important;
+          color: #ffffff !important;
+          padding: 0.5rem 0.95rem !important;
+          border-radius: 8px !important;
+          font-size: 0.82rem !important;
+          font-weight: 700 !important;
+          text-decoration: none !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 0.45rem !important;
+          transition: all 0.18s ease !important;
+          box-shadow: 0 2px 6px rgba(11, 31, 58, 0.25) !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          white-space: nowrap !important;
         }
 
-        .btn-action-review:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 14px rgba(11, 31, 58, 0.3);
-          background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+        :global(.btn-action-review:hover) {
+          transform: translateY(-2px) !important;
+          box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35) !important;
+          background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
+          color: #ffffff !important;
         }
 
         .btn-arrow {
           transition: transform 0.18s ease;
         }
 
-        .btn-action-review:hover .btn-arrow {
+        :global(.btn-action-review:hover .btn-arrow) {
           transform: translateX(3px);
         }
 

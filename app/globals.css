@@ -84,7 +84,7 @@ body {
   min-height: 100dvh;
   color: var(--clr-text);
   background-color: var(--clr-surface);
-  background-image: 
+  background-image:
     radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.025) 0%, transparent 40%),
     radial-gradient(circle at 90% 80%, rgba(249, 115, 22, 0.025) 0%, transparent 40%),
     radial-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px);
@@ -104,9 +104,9 @@ body {
   border: 1px solid var(--clr-border);
   border-radius: 16px;
   box-shadow: var(--shadow-card);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
-              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
-              border-color 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s ease;
 }
 
 .executive-card:hover {
@@ -127,24 +127,25 @@ body {
 .gov-ribbon {
   height: 3.5px;
   width: 100%;
-  background: linear-gradient(
-    90deg,
-    #ff671f 0%,
-    #ff671f 33.33%,
-    #ffffff 33.33%,
-    #ffffff 66.66%,
-    #046a38 66.66%,
-    #046a38 100%
-  );
+  background: linear-gradient(90deg,
+      #ff671f 0%,
+      #ff671f 33.33%,
+      #ffffff 33.33%,
+      #ffffff 66.66%,
+      #046a38 66.66%,
+      #046a38 100%);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Subtle Pulsing Dots */
 @keyframes pulse-subtle {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.45;
     transform: scale(0.88);
@@ -160,18 +161,17 @@ body {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 .ai-shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(99, 102, 241, 0.05) 0%,
-    rgba(168, 85, 247, 0.15) 50%,
-    rgba(99, 102, 241, 0.05) 100%
-  );
+  background: linear-gradient(90deg,
+      rgba(99, 102, 241, 0.05) 0%,
+      rgba(168, 85, 247, 0.15) 50%,
+      rgba(99, 102, 241, 0.05) 100%);
   background-size: 200% 100%;
   animation: shimmer-sweep 3s infinite linear;
 }
