@@ -50,6 +50,21 @@ const STATUS_PILL_STYLES: Record<
   },
 };
 
+const AVATAR_GRADIENTS = [
+  "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+  "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+  "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+  "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+  "linear-gradient(135deg, #ec4899 0%, #be185d 100%)",
+  "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
+];
+
+function getAvatarGradient(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i);
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+}
+
 function daysSince(date: Date): number {
   return Math.floor((Date.now() - new Date(date).getTime()) / 86_400_000);
 }
@@ -136,9 +151,11 @@ export default function DashboardClient({
       <div className="hero-banner">
         <div className="hero-left">
           <div className="hero-salutation">
-            <span className="hero-badge">हरियाणा समाज कल्याण पोर्टल</span>
+            <span className="hero-badge">
+              <span className="badge-sparkle">🏛️</span> हरियाणा समाज कल्याण पोर्टल
+            </span>
             <span className="hero-date">
-              {new Date().toLocaleDateString("hi-IN", {
+              📅 {new Date().toLocaleDateString("hi-IN", {
                 weekday: "long",
                 year: "numeric",
                 month: "long",
@@ -148,45 +165,46 @@ export default function DashboardClient({
           </div>
           <h1 className="hero-title">
             सुप्रभात, <span className="officer-highlight">{officerName} जी</span>
-            <span style={{ fontSize: "1rem", fontWeight: 500, color: "#cbd5e1", marginLeft: "0.6rem" }}>
-              ({officerDesignation})
-            </span>
+            <span className="officer-role-tag">{officerDesignation}</span>
           </h1>
           <p className="hero-subtitle">
-            आपके अधिकार क्षेत्र में कुल <strong>{total} आवेदन</strong> दर्ज हैं। इनमें से{" "}
-            <strong className="text-amber">{pending} लंबित</strong> हैं और{" "}
-            <strong className="text-red">{slaBreached} आवेदनों में SLA समय-सीमा पार</strong> हो चुकी है।
+            आपके कार्यक्षेत्र में कुल <strong className="stat-pill-white">{total} आवेदन</strong> पंजीकृत हैं — जिनमें से{" "}
+            <strong className="stat-pill-amber">{pending} लंबित</strong> हैं एवं{" "}
+            <strong className="stat-pill-red">{slaBreached} आवेदनों की 30-दिवसीय SLA सीमा समाप्त</strong> हो चुकी है।
           </p>
         </div>
 
         {slaBreached > 0 && (
           <div className="hero-sla-alert">
-            <div className="sla-alert-icon">🚨</div>
-            <div>
+            <div className="sla-alert-beacon">
+              <span className="beacon-ring"></span>
+              <span className="beacon-core">🚨</span>
+            </div>
+            <div className="sla-alert-content">
               <div className="sla-alert-title">SLA अतिदेय चेतावनी (RTSA 2014)</div>
               <div className="sla-alert-desc">
-                {slaBreached} आवेदन 30 दिन से अधिक समय से लंबित हैं। कृपया प्राथमिकता पर समीक्षा करें।
+                {slaBreached} आवेदन सेवा अधिकार सीमा पार कर चुके हैं। तुरंत समीक्षा करें।
               </div>
             </div>
             <button
               onClick={() => setStatusFilter("SLA_BREACH")}
               className="btn-filter-sla"
             >
-              देखें ({slaBreached}) →
+              समीक्षा सूची ({slaBreached}) →
             </button>
           </div>
         )}
       </div>
 
-      {/* ─── Stats KPI Grid ───────────────────────────────────────────────── */}
+      {/* ─── Modern 6-Column KPI Grid ─────────────────────────────────────── */}
       <div className="kpi-grid">
         <KpiCard
-          label="कुल आवेदन"
+          label="कुल पंजीकृत"
           value={total}
           icon="📋"
-          color="#0b1f3a"
-          bg="linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%)"
-          border="#cbd5e1"
+          subtext="समस्त आवेदन"
+          color="#1e3a8a"
+          accentColor="#3b82f6"
           active={statusFilter === "ALL"}
           onClick={() => setStatusFilter("ALL")}
         />
@@ -194,19 +212,19 @@ export default function DashboardClient({
           label="लंबित समीक्षा"
           value={pending}
           icon="⏳"
+          subtext={`${total > 0 ? Math.round((pending / total) * 100) : 0}% अनिस्तारित`}
           color="#c2410c"
-          bg="linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)"
-          border="#fed7aa"
+          accentColor="#f97316"
           active={statusFilter === "PENDING"}
           onClick={() => setStatusFilter("PENDING")}
         />
         <KpiCard
-          label="SLA उल्लंघन (>30 दिन)"
+          label="SLA उल्लंघन"
           value={slaBreached}
           icon="🚨"
+          subtext="> 30 दिन लंबित"
           color="#b91c1c"
-          bg="linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)"
-          border="#fecaca"
+          accentColor="#ef4444"
           active={statusFilter === "SLA_BREACH"}
           onClick={() => setStatusFilter("SLA_BREACH")}
           glowRed={slaBreached > 0}
@@ -215,156 +233,185 @@ export default function DashboardClient({
           label="उच्च प्राथमिकता"
           value={highPriority}
           icon="⚠️"
+          subtext="फ्लैग किए गए"
           color="#b45309"
-          bg="linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)"
-          border="#fde68a"
+          accentColor="#f59e0b"
           active={statusFilter === "HIGH_PRIORITY"}
           onClick={() => setStatusFilter("HIGH_PRIORITY")}
         />
         <KpiCard
-          label="स्वीकृत आवेदन"
+          label="स्वीकृत पेंशन"
           value={approved}
           icon="✅"
+          subtext="सत्यापित व पात्र"
           color="#047857"
-          bg="linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)"
-          border="#a7f3d0"
+          accentColor="#10b981"
           active={statusFilter === "APPROVED"}
           onClick={() => setStatusFilter("APPROVED")}
         />
         <KpiCard
           label="अस्वीकृत / वापस"
           value={rejected + returned}
-          icon="❌"
-          color="#7f1d1d"
-          bg="linear-gradient(135deg, #fdf2f8 0%, #fae8ff 100%)"
-          border="#f5d0fe"
+          icon="↩️"
+          subtext={`${rejected} अस्वीकृत • ${returned} वापस`}
+          color="#6b21a8"
+          accentColor="#a855f7"
           active={statusFilter === "REJECTED"}
           onClick={() => setStatusFilter("REJECTED")}
         />
       </div>
 
-      {/* ─── Search & Filter Control Bar ──────────────────────────────────── */}
+      {/* ─── Search, Filters & View Switcher ──────────────────────────────── */}
       <div className="controls-panel">
-        <div className="search-box-wrapper">
-          <span className="search-icon">🔍</span>
-          <input
-            type="text"
-            placeholder="आवेदक का नाम, पिता/पति, गाँव, तहसील या आधार संख्या से खोजें…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm("")}
-              className="search-clear-btn"
-              title="खोज साफ़ करें"
-            >
-              ✕
-            </button>
-          )}
+        <div className="controls-top-row">
+          <div className="search-box-wrapper">
+            <span className="search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="आवेदक का नाम, पिता/पति का नाम, गाँव, तहसील या आधार संख्या से खोजें…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            {searchTerm ? (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="search-clear-btn"
+                title="खोज साफ़ करें"
+              >
+                ✕
+              </button>
+            ) : (
+              <span className="search-shortcut">⌘K</span>
+            )}
+          </div>
+
+          <div className="view-and-sort-controls">
+            {/* Sort Dropdown */}
+            <div className="sort-select-wrapper">
+              <span className="sort-label">क्रम:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="sort-select"
+              >
+                <option value="urgency">⚡ प्राथमिकता स्कोर (तत्कालता)</option>
+                <option value="waiting">⏱️ प्रतीक्षा काल (सर्वाधिक दिन)</option>
+                <option value="age">👴 आवेदक की आयु (वरिष्ठता)</option>
+                <option value="date">📅 आवेदन की नई तिथि</option>
+              </select>
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="view-toggle-group">
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`view-toggle-btn ${viewMode === "table" ? "toggle-active" : ""}`}
+                title="तालिका दृश्य (Table View)"
+              >
+                <span>📄</span> तालिका
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                className={`view-toggle-btn ${viewMode === "grid" ? "toggle-active" : ""}`}
+                title="कार्ड्स दृश्य (Cards View)"
+              >
+                <span>🗂️</span> कार्ड्स
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Filter Pills */}
+        {/* Filter Segmented Control Chips */}
         <div className="filter-chips-scroll">
           <button
             className={`filter-chip ${statusFilter === "ALL" ? "chip-active" : ""}`}
             onClick={() => setStatusFilter("ALL")}
           >
-            सभी ({total})
+            सभी आवेदन <span className="chip-count">{total}</span>
           </button>
           <button
             className={`filter-chip chip-sla ${statusFilter === "SLA_BREACH" ? "chip-active-sla" : ""}`}
             onClick={() => setStatusFilter("SLA_BREACH")}
           >
             <span className="sla-dot pulse-dot"></span>
-            SLA उल्लंघन ({slaBreached})
+            SLA उल्लंघन <span className="chip-count-danger">{slaBreached}</span>
           </button>
           <button
             className={`filter-chip ${statusFilter === "HIGH_PRIORITY" ? "chip-active" : ""}`}
             onClick={() => setStatusFilter("HIGH_PRIORITY")}
           >
-            उच्च प्राथमिकता ({highPriority})
+            ⚠️ उच्च प्राथमिकता <span className="chip-count">{highPriority}</span>
           </button>
           <button
             className={`filter-chip ${statusFilter === "PENDING" ? "chip-active" : ""}`}
             onClick={() => setStatusFilter("PENDING")}
           >
-            लंबित ({pending})
+            ⏳ लंबित समीक्षा <span className="chip-count">{pending}</span>
           </button>
           <button
             className={`filter-chip ${statusFilter === "APPROVED" ? "chip-active" : ""}`}
             onClick={() => setStatusFilter("APPROVED")}
           >
-            स्वीकृत ({approved})
+            ✅ स्वीकृत <span className="chip-count">{approved}</span>
           </button>
           <button
             className={`filter-chip ${statusFilter === "REJECTED" ? "chip-active" : ""}`}
             onClick={() => setStatusFilter("REJECTED")}
           >
-            अस्वीकृत ({rejected})
+            ❌ अस्वीकृत / वापस <span className="chip-count">{rejected + returned}</span>
           </button>
         </div>
+      </div>
 
-        {/* Sort & View Mode Toolbar */}
-        <div className="toolbar-right">
-          <div className="sort-selector">
-            <span className="sort-label">क्रम:</span>
-            <select
-              value={sortBy}
-              onChange={(e) =>
-                setSortBy(
-                  e.target.value as "urgency" | "waiting" | "age" | "date"
-                )
-              }
-              className="sort-dropdown"
-            >
-              <option value="urgency">⚡ तात्कालिकता स्कोर (प्राथमिकता)</option>
-              <option value="waiting">⏱️ प्रतीक्षित दिन (पुराना पहले)</option>
-              <option value="age">🎂 आवेदक आयु (वरिष्ठ पहले)</option>
-              <option value="date">📅 आवेदन तिथि (नवीनतम)</option>
-            </select>
-          </div>
-
-          <div className="view-toggle">
-            <button
-              className={`view-btn ${viewMode === "table" ? "view-btn-active" : ""}`}
-              onClick={() => setViewMode("table")}
-              title="तालिका दृश्य"
-            >
-              📑 तालिका
-            </button>
-            <button
-              className={`view-btn ${viewMode === "grid" ? "view-btn-active" : ""}`}
-              onClick={() => setViewMode("grid")}
-              title="कार्ड दृश्य"
-            >
-              🗂️ कार्ड
-            </button>
-          </div>
+      {/* ─── Results Meta Counter ─────────────────────────────────────────── */}
+      <div className="results-meta-bar">
+        <div className="results-meta-left">
+          <span className="meta-results-count">
+            प्रदर्शित: <strong>{filteredApps.length}</strong> / कुल {total} आवेदन
+          </span>
+          {statusFilter !== "ALL" && (
+            <span className="active-filter-badge">
+              फ़िल्टर: {statusFilter === "SLA_BREACH" ? "SLA अतिदेय" : statusFilter === "HIGH_PRIORITY" ? "उच्च प्राथमिकता" : STATUS_LABELS[statusFilter as ApplicationStatus] || statusFilter}
+              <button onClick={() => setStatusFilter("ALL")} className="tag-remove">×</button>
+            </span>
+          )}
+          {searchTerm && (
+            <span className="active-filter-badge">
+              खोज: &quot;{searchTerm}&quot;
+              <button onClick={() => setSearchTerm("")} className="tag-remove">×</button>
+            </span>
+          )}
         </div>
       </div>
 
-      {/* ─── Result Counter & Filter Summary ──────────────────────────────── */}
-      <div className="results-meta-bar">
-        <span>
-          प्रदर्शित: <strong>{filteredApps.length}</strong> / कुल {total} आवेदन
-        </span>
-        {searchTerm && (
-          <span className="active-filter-tag">
-            खोज: &quot;{searchTerm}&quot;
-            <button onClick={() => setSearchTerm("")} className="tag-remove">×</button>
-          </span>
-        )}
-      </div>
-
-      {/* ─── Application View (Table or Grid) ─────────────────────────────── */}
-      {viewMode === "table" ? (
+      {/* ─── Empty Results State ──────────────────────────────────────────── */}
+      {filteredApps.length === 0 ? (
+        <div className="empty-results-card executive-card">
+          <div className="empty-icon">🔍</div>
+          <h3 className="empty-title">कोई आवेदन नहीं मिला</h3>
+          <p className="empty-desc">
+            आपके द्वारा चुने गए फ़िल्टर या खोज शब्द के अनुरूप कोई रिकॉर्ड उपलब्ध नहीं है।
+          </p>
+          <button
+            onClick={() => {
+              setSearchTerm("");
+              setStatusFilter("ALL");
+            }}
+            className="btn-reset-filters"
+          >
+            फ़िल्टर रीसेट करें
+          </button>
+        </div>
+      ) : viewMode === "table" ? (
+        /* ─── Ultra-Clean Modern Table View ──────────────────────────────── */
         <div className="table-container executive-card">
           <table className="modern-table">
             <thead>
               <tr className="table-head-row">
-                <th style={{ width: "45px", textAlign: "center" }}>#</th>
+                <th style={{ width: "48px", textAlign: "center" }}>#</th>
                 <th>आवेदक विवरण</th>
                 <th>गाँव / तहसील</th>
                 <th style={{ textAlign: "center" }}>आयु (पात्रता)</th>
@@ -372,7 +419,7 @@ export default function DashboardClient({
                 <th style={{ textAlign: "center" }}>प्रतीक्षा काल / SLA</th>
                 <th style={{ textAlign: "center" }}>स्थिति</th>
                 <th style={{ textAlign: "center" }}>प्राथमिकता</th>
-                <th style={{ textAlign: "center", width: "130px" }}>कार्यवाही</th>
+                <th style={{ textAlign: "center", width: "135px" }}>कार्यवाही</th>
               </tr>
             </thead>
             <tbody>
@@ -382,8 +429,6 @@ export default function DashboardClient({
                 const isHigh = app.priority === "HIGH" && app.status === "PENDING";
                 const age = calculateAge(new Date(app.dob));
                 const statusStyle = STATUS_PILL_STYLES[app.status];
-
-                // Progress percentage of SLA (30 days)
                 const slaPercent = Math.min(Math.round((days / SLA_BREACH_DAYS) * 100), 100);
 
                 return (
@@ -396,22 +441,27 @@ export default function DashboardClient({
                     {/* Applicant Name & Masked Info */}
                     <td className="cell-applicant">
                       <div className="applicant-flex">
-                        <div className="applicant-avatar">
+                        <div
+                          className="applicant-avatar"
+                          style={{ background: getAvatarGradient(app.applicantName) }}
+                        >
                           {app.applicantName[0]}
                         </div>
-                        <div>
-                          <div className="applicant-name">{app.applicantName}</div>
+                        <div className="applicant-info-block">
+                          <div className="applicant-name-row">
+                            <span className="applicant-name">{app.applicantName}</span>
+                            {app.flagNote && (
+                              <span className="applicant-flag-chip" title={app.flagNote}>
+                                ⚠️
+                              </span>
+                            )}
+                          </div>
                           <div className="applicant-relation">
-                            पिता/पति: {app.fatherHusbandName}
+                            आत्मज/पत्नी: {app.fatherHusbandName}
                           </div>
-                          <div className="applicant-id-tag">
-                            आधार: {app.aadhaarMasked}
+                          <div className="applicant-aadhaar-pill">
+                            🆔 {app.aadhaarMasked}
                           </div>
-                          {app.flagNote && (
-                            <div className="applicant-flag-note">
-                              ⚠️ {app.flagNote}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </td>
@@ -424,11 +474,11 @@ export default function DashboardClient({
 
                     {/* Age with Qualification Tag */}
                     <td className="cell-age" style={{ textAlign: "center" }}>
-                      <div className={`age-badge ${age >= 60 ? "age-eligible" : "age-ineligible"}`}>
+                      <span className={`age-pill ${age >= 60 ? "age-eligible" : "age-ineligible"}`}>
                         {age} वर्ष
-                      </div>
+                      </span>
                       <div className="age-subtext">
-                        {age >= 60 ? "✓ 60+ पात्र" : "✕ अपात्र"}
+                        {age >= 60 ? "✓ 60+ पूर्ण" : "✕ अपात्र"}
                       </div>
                     </td>
 
@@ -438,21 +488,25 @@ export default function DashboardClient({
                         ₹{app.annualIncome.toLocaleString("hi-IN")}
                       </div>
                       <div className="income-ceiling">
-                        {app.annualIncome <= 200000 ? "✓ ₹2L सीमा के अंदर" : "⚠️ सीमा से अधिक"}
+                        {app.annualIncome <= 200000 ? (
+                          <span className="income-pass">✓ ₹2L सीमा में</span>
+                        ) : (
+                          <span className="income-fail">⚠️ सीमा से अधिक</span>
+                        )}
                       </div>
                     </td>
 
-                    {/* Waiting Days & SLA Bar */}
+                    {/* Waiting Days & SLA Progress Bar */}
                     <td className="cell-sla" style={{ textAlign: "center" }}>
                       <div className="sla-days-wrap">
                         <span className={`sla-days ${sla ? "sla-text-red" : days > 15 ? "sla-text-amber" : "sla-text-normal"}`}>
                           {app.status === "PENDING" ? `${days} दिन` : "निस्तारित"}
                         </span>
-                        {sla && <span className="sla-badge-pill">SLA अतिदेय</span>}
+                        {sla && <span className="sla-badge-pill">अतिदेय</span>}
                       </div>
 
                       {app.status === "PENDING" && (
-                        <div className="sla-progress-track">
+                        <div className="sla-progress-track" title={`${days}/${SLA_BREACH_DAYS} दिन (${slaPercent}%)`}>
                           <div
                             className={`sla-progress-fill ${sla ? "fill-red" : days > 15 ? "fill-amber" : "fill-blue"}`}
                             style={{ width: `${slaPercent}%` }}
@@ -468,7 +522,7 @@ export default function DashboardClient({
                         style={{
                           background: statusStyle.bg,
                           color: statusStyle.text,
-                          border: `1px solid ${statusStyle.border}`,
+                          border: `1.5px solid ${statusStyle.border}`,
                         }}
                       >
                         <span
@@ -492,13 +546,14 @@ export default function DashboardClient({
                       )}
                     </td>
 
-                    {/* Action Link */}
+                    {/* Action Link Button */}
                     <td style={{ textAlign: "center" }}>
                       <Link
                         href={`/applications/${app.id}`}
                         className="btn-action-review"
                       >
-                        समीक्षा करें →
+                        <span>समीक्षा करें</span>
+                        <span className="btn-arrow">→</span>
                       </Link>
                     </td>
                   </tr>
@@ -508,7 +563,7 @@ export default function DashboardClient({
           </table>
         </div>
       ) : (
-        /* ─── Grid Cards View ─────────────────────────────────────────────── */
+        /* ─── Bento Grid Cards View ───────────────────────────────────────── */
         <div className="cards-grid">
           {filteredApps.map((app, idx) => {
             const days = daysSince(app.submittedAt);
@@ -525,14 +580,14 @@ export default function DashboardClient({
                 <div className="card-top-row">
                   <span className="card-index-pill">#{idx + 1}</span>
                   <div className="card-badges-flex">
-                    {sla && <span className="sla-badge-pill">SLA अतिदेय</span>}
-                    {isHigh && <span className="priority-high-badge">⚠️ उच्च प्राथमिकता</span>}
+                    {sla && <span className="sla-badge-pill">🚨 SLA अतिदेय</span>}
+                    {isHigh && <span className="priority-high-badge">⚠️ उच्च</span>}
                     <span
                       className="status-pill-badge"
                       style={{
                         background: statusStyle.bg,
                         color: statusStyle.text,
-                        border: `1px solid ${statusStyle.border}`,
+                        border: `1.5px solid ${statusStyle.border}`,
                       }}
                     >
                       <span className="status-dot" style={{ background: statusStyle.dot }} />
@@ -542,13 +597,16 @@ export default function DashboardClient({
                 </div>
 
                 <div className="card-applicant-row">
-                  <div className="applicant-avatar-lg">
+                  <div
+                    className="applicant-avatar-lg"
+                    style={{ background: getAvatarGradient(app.applicantName) }}
+                  >
                     {app.applicantName[0]}
                   </div>
                   <div>
                     <h3 className="card-applicant-name">{app.applicantName}</h3>
-                    <p className="card-applicant-sub">पिता/पति: {app.fatherHusbandName}</p>
-                    <p className="card-applicant-sub">आधार: {app.aadhaarMasked}</p>
+                    <p className="card-applicant-sub">आत्मज/पत्नी: {app.fatherHusbandName}</p>
+                    <p className="card-applicant-aadhaar">🆔 आधार: {app.aadhaarMasked}</p>
                   </div>
                 </div>
 
@@ -564,11 +622,11 @@ export default function DashboardClient({
                     <span className="meta-val">₹{app.annualIncome.toLocaleString("hi-IN")}</span>
                   </div>
                   <div className="meta-box">
-                    <span className="meta-label">स्थान</span>
+                    <span className="meta-label">गाँव / तहसील</span>
                     <span className="meta-val">{app.village}, {app.tehsil}</span>
                   </div>
                   <div className="meta-box">
-                    <span className="meta-label">प्रतीक्षा अवधि</span>
+                    <span className="meta-label">प्रतीक्षा काल</span>
                     <span className={`meta-val ${sla ? "text-red" : ""}`}>
                       {app.status === "PENDING" ? `${days} दिन` : "निस्तारित"}
                     </span>
@@ -583,13 +641,14 @@ export default function DashboardClient({
 
                 <div className="card-footer-row">
                   <span className="docs-count">
-                    📄 {app.documentsSubmitted.length} दस्तावेज़ संलग्न
+                    📂 {app.documentsSubmitted.length}/6 दस्तावेज़
                   </span>
                   <Link
                     href={`/applications/${app.id}`}
                     className="btn-action-review"
                   >
-                    समीक्षा करें →
+                    <span>समीक्षा करें</span>
+                    <span className="btn-arrow">→</span>
                   </Link>
                 </div>
               </div>
@@ -598,336 +657,470 @@ export default function DashboardClient({
         </div>
       )}
 
-      {/* Empty State */}
-      {filteredApps.length === 0 && (
-        <div className="empty-state-box executive-card">
-          <div className="empty-icon">🔎</div>
-          <h3 className="empty-title">कोई आवेदन नहीं मिला</h3>
-          <p className="empty-desc">
-            आपके द्वारा चुने गए फ़िल्टर या खोज शब्द &quot;{searchTerm}&quot; के अनुसार कोई परिणाम उपलब्ध नहीं है।
-          </p>
-          <button
-            onClick={() => {
-              setSearchTerm("");
-              setStatusFilter("ALL");
-            }}
-            className="btn-reset-filters"
-          >
-            सभी फ़िल्टर रीसेट करें
-          </button>
-        </div>
-      )}
-
+      {/* ─── Stylesheet Scoped to Dashboard ──────────────────────────────── */}
       <style jsx>{`
         /* Hero Banner */
         .hero-banner {
-          background: linear-gradient(135deg, #07152b 0%, #0b1f3a 50%, #163660 100%);
+          background: linear-gradient(135deg, #07152b 0%, #0b1f3a 50%, #153763 100%);
           color: white;
-          border-radius: 18px;
-          padding: 2rem 2.25rem;
+          border-radius: 20px;
+          padding: 2.25rem 2.5rem;
           margin-bottom: 2rem;
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 1.5rem;
-          box-shadow: var(--shadow-elevated);
+          gap: 1.75rem;
+          box-shadow: 0 16px 36px -8px rgba(7, 21, 43, 0.28);
           position: relative;
           overflow: hidden;
+          border: 1px solid rgba(255, 255, 255, 0.12);
         }
 
         .hero-banner::after {
           content: "";
           position: absolute;
-          right: -20px;
+          right: -30px;
           bottom: -40px;
-          width: 200px;
-          height: 200px;
-          background: radial-gradient(circle, rgba(249, 115, 22, 0.15) 0%, transparent 70%);
+          width: 260px;
+          height: 260px;
+          background: radial-gradient(circle, rgba(249, 115, 22, 0.18) 0%, rgba(99, 102, 241, 0.08) 50%, transparent 70%);
           pointer-events: none;
         }
 
         .hero-left {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.65rem;
           max-width: 680px;
+          position: relative;
+          z-index: 2;
         }
 
         .hero-salutation {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
-          font-size: 0.8rem;
+          gap: 0.85rem;
+          font-size: 0.82rem;
+          flex-wrap: wrap;
         }
 
         .hero-badge {
-          background: rgba(251, 211, 141, 0.2);
+          background: rgba(251, 211, 141, 0.18);
           color: #fbd38d;
           border: 1px solid rgba(251, 211, 141, 0.35);
           border-radius: 999px;
-          padding: 0.2rem 0.75rem;
+          padding: 0.25rem 0.85rem;
           font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+
+        .badge-sparkle {
+          font-size: 0.95rem;
         }
 
         .hero-date {
           color: #cbd5e1;
-          font-family: var(--font-sans);
+          font-family: var(--font-devanagari);
+          font-size: 0.82rem;
         }
 
         .hero-title {
-          font-size: 1.85rem;
-          font-weight: 700;
-          letter-spacing: -0.01em;
+          font-size: 1.95rem;
+          font-weight: 800;
+          letter-spacing: -0.015em;
           color: #ffffff;
+          line-height: 1.2;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 0.6rem;
         }
 
         .officer-highlight {
-          color: #fbd38d;
+          background: linear-gradient(90deg, #fbd38d 0%, #ffedd5 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .officer-role-tag {
+          font-size: 0.88rem;
+          font-weight: 600;
+          color: #94a3b8;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          padding: 0.2rem 0.65rem;
+          border-radius: 8px;
         }
 
         .hero-subtitle {
-          font-size: 0.92rem;
-          color: #e2e8f0;
-          line-height: 1.5;
+          font-size: 0.94rem;
+          color: #cbd5e1;
+          line-height: 1.6;
         }
 
-        .text-amber {
-          color: #fbd38d;
+        .stat-pill-white {
+          color: #ffffff;
+          background: rgba(255, 255, 255, 0.15);
+          padding: 0.1rem 0.45rem;
+          border-radius: 6px;
         }
 
-        .text-red {
+        .stat-pill-amber {
+          color: #fef08a;
+          background: rgba(234, 179, 8, 0.2);
+          padding: 0.1rem 0.45rem;
+          border-radius: 6px;
+        }
+
+        .stat-pill-red {
           color: #fca5a5;
+          background: rgba(239, 68, 68, 0.25);
+          padding: 0.1rem 0.45rem;
+          border-radius: 6px;
         }
 
+        /* Hero SLA Alert */
         .hero-sla-alert {
-          background: rgba(220, 38, 38, 0.2);
-          border: 1.5px solid rgba(248, 113, 113, 0.45);
-          backdrop-filter: blur(10px);
-          border-radius: 14px;
-          padding: 1.15rem 1.35rem;
+          background: linear-gradient(135deg, rgba(220, 38, 38, 0.25) 0%, rgba(153, 27, 27, 0.35) 100%);
+          border: 1.5px solid rgba(248, 113, 113, 0.55);
+          backdrop-filter: blur(12px);
+          border-radius: 16px;
+          padding: 1.25rem 1.45rem;
           display: flex;
           align-items: center;
-          gap: 1rem;
-          max-width: 420px;
+          gap: 1.15rem;
+          max-width: 440px;
+          position: relative;
+          z-index: 2;
+          box-shadow: 0 8px 24px rgba(220, 38, 38, 0.25);
         }
 
-        .sla-alert-icon {
-          font-size: 1.8rem;
+        .sla-alert-beacon {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          flex-shrink: 0;
+        }
+
+        .beacon-core {
+          font-size: 1.85rem;
+          position: relative;
+          z-index: 2;
+        }
+
+        .beacon-ring {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background: rgba(239, 68, 68, 0.4);
+          animation: pulse-subtle 1.8s infinite;
+        }
+
+        .sla-alert-content {
+          flex: 1;
         }
 
         .sla-alert-title {
-          font-size: 0.88rem;
+          font-size: 0.92rem;
           font-weight: 700;
-          color: #fecaca;
+          color: #fee2e2;
         }
 
         .sla-alert-desc {
-          font-size: 0.78rem;
-          color: #fee2e2;
+          font-size: 0.8rem;
+          color: #fecaca;
           line-height: 1.4;
-          margin-top: 0.2rem;
+          margin-top: 0.25rem;
         }
 
         .btn-filter-sla {
-          background: #dc2626;
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
           color: white;
-          border: none;
-          border-radius: 8px;
-          padding: 0.45rem 0.85rem;
-          font-size: 0.8rem;
-          font-weight: 600;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 10px;
+          padding: 0.55rem 0.95rem;
+          font-size: 0.82rem;
+          font-weight: 700;
           cursor: pointer;
           white-space: nowrap;
-          transition: background 0.15s ease;
+          transition: all 0.18s ease;
+          box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
         }
 
         .btn-filter-sla:hover {
-          background: #b91c1c;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(220, 38, 38, 0.45);
         }
 
-        /* KPI Cards Grid */
+        /* ─── Modern 6-Column KPI Grid ─────────────────────────────────── */
         .kpi-grid {
           display: grid;
-          grid-templateColumns: repeat(auto-fit, minmax(170px, 1fr));
-          gap: 1.1rem;
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          gap: 1.15rem;
           margin-bottom: 2rem;
+        }
+
+        @media (max-width: 1200px) {
+          .kpi-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 768px) {
+          .kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 480px) {
+          .kpi-grid {
+            grid-template-columns: 1fr;
+          }
         }
 
         /* Controls Panel */
         .controls-panel {
           background: #ffffff;
           border: 1px solid var(--clr-border);
-          border-radius: 14px;
-          padding: 1.15rem 1.35rem;
+          border-radius: 16px;
+          padding: 1.35rem 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
-          margin-bottom: 1rem;
+          gap: 1.15rem;
+          margin-bottom: 1.25rem;
           box-shadow: var(--shadow-card);
+        }
+
+        .controls-top-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1.25rem;
+          flex-wrap: wrap;
         }
 
         .search-box-wrapper {
           position: relative;
           display: flex;
           align-items: center;
-          width: 100%;
+          flex: 1;
+          min-width: 280px;
         }
 
         .search-icon {
           position: absolute;
-          left: 1.1rem;
-          font-size: 1rem;
-          opacity: 0.6;
+          left: 1.15rem;
+          font-size: 1.05rem;
+          opacity: 0.55;
           pointer-events: none;
         }
 
         .search-input {
           width: 100%;
           border: 1.5px solid var(--clr-border);
-          border-radius: 10px;
-          padding: 0.75rem 2.5rem 0.75rem 2.85rem;
+          border-radius: 12px;
+          padding: 0.8rem 3rem 0.8rem 3rem;
           font-family: var(--font-devanagari);
           font-size: 0.95rem;
           color: var(--clr-text);
           background: #f8fafc;
-          transition: all 0.18s ease;
+          transition: all 0.2s ease;
           outline: none;
         }
 
         .search-input:focus {
           border-color: #2563eb;
           background: #ffffff;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
         }
 
         .search-clear-btn {
           position: absolute;
-          right: 1rem;
-          background: none;
-          border: none;
-          color: #94a3b8;
-          font-size: 1rem;
-          cursor: pointer;
-        }
-
-        /* Filter Chips */
-        .filter-chips-scroll {
-          display: flex;
-          gap: 0.65rem;
-          overflow-x: auto;
-          padding-bottom: 0.25rem;
-        }
-
-        .filter-chip {
-          background: #f1f5f9;
-          border: 1px solid #e2e8f0;
-          border-radius: 999px;
-          padding: 0.4rem 0.95rem;
-          font-size: 0.82rem;
-          font-weight: 600;
-          color: #475569;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: all 0.15s ease;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-        }
-
-        .filter-chip:hover {
+          right: 1.15rem;
           background: #e2e8f0;
-          color: #1e293b;
-        }
-
-        .chip-active {
-          background: #0b1f3a !important;
-          color: #ffffff !important;
-          border-color: #0b1f3a !important;
-        }
-
-        .chip-sla {
-          background: #fef2f2;
-          color: #dc2626;
-          border-color: #fecaca;
-        }
-
-        .chip-active-sla {
-          background: #dc2626 !important;
-          color: #ffffff !important;
-          border-color: #dc2626 !important;
-        }
-
-        .sla-dot {
-          width: 7px;
-          height: 7px;
+          border: none;
+          color: #475569;
+          font-size: 0.85rem;
+          width: 22px;
+          height: 22px;
           border-radius: 50%;
-          background: #dc2626;
-        }
-
-        .chip-active-sla .sla-dot {
-          background: #ffffff;
-        }
-
-        /* Toolbar Right */
-        .toolbar-right {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 1rem;
-          padding-top: 0.75rem;
-          border-top: 1px solid var(--clr-border-subtle);
+          justify-content: center;
+          cursor: pointer;
         }
 
-        .sort-selector {
+        .search-shortcut {
+          position: absolute;
+          right: 1.15rem;
+          background: #edf2f7;
+          color: #94a3b8;
+          font-size: 0.72rem;
+          font-weight: 700;
+          font-family: var(--font-sans);
+          padding: 0.2rem 0.5rem;
+          border-radius: 6px;
+          border: 1px solid #cbd5e1;
+        }
+
+        .view-and-sort-controls {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .sort-select-wrapper {
           display: flex;
           align-items: center;
           gap: 0.5rem;
+          background: #f8fafc;
+          border: 1.5px solid var(--clr-border);
+          border-radius: 12px;
+          padding: 0.35rem 0.75rem;
         }
 
         .sort-label {
           font-size: 0.82rem;
-          font-weight: 600;
           color: #64748b;
+          font-weight: 600;
         }
 
-        .sort-dropdown {
-          border: 1px solid var(--clr-border);
-          border-radius: 8px;
-          padding: 0.4rem 0.75rem;
-          font-size: 0.84rem;
+        .sort-select {
+          border: none;
+          background: transparent;
           font-family: var(--font-devanagari);
-          color: var(--clr-text);
-          background: white;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: #0f172a;
           outline: none;
           cursor: pointer;
         }
 
-        .view-toggle {
+        .view-toggle-group {
           display: flex;
+          align-items: center;
           background: #f1f5f9;
+          padding: 0.25rem;
+          border-radius: 10px;
           border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          padding: 2px;
         }
 
-        .view-btn {
+        .view-toggle-btn {
           border: none;
-          background: none;
-          padding: 0.35rem 0.75rem;
-          border-radius: 6px;
-          font-size: 0.78rem;
+          background: transparent;
+          padding: 0.45rem 0.85rem;
+          font-size: 0.82rem;
           font-weight: 600;
           color: #64748b;
+          border-radius: 8px;
           cursor: pointer;
           transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-family: var(--font-devanagari);
         }
 
-        .view-btn-active {
+        .toggle-active {
           background: #ffffff;
-          color: #0b1f3a;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          color: #0f172a;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Filter Chips Segmented Bar */
+        .filter-chips-scroll {
+          display: flex;
+          gap: 0.65rem;
+          overflow-x: auto;
+          padding-bottom: 0.2rem;
+        }
+
+        .filter-chip {
+          border: 1.5px solid var(--clr-border);
+          background: #f8fafc;
+          border-radius: 10px;
+          padding: 0.5rem 0.95rem;
+          font-size: 0.84rem;
+          font-weight: 600;
+          color: #475569;
+          cursor: pointer;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.55rem;
+          font-family: var(--font-devanagari);
+          transition: all 0.18s ease;
+        }
+
+        .filter-chip:hover {
+          background: #f1f5f9;
+          border-color: #cbd5e1;
+          color: #0f172a;
+        }
+
+        .chip-active {
+          background: #0b1f3a !important;
+          border-color: #0b1f3a !important;
+          color: #ffffff !important;
+          box-shadow: 0 2px 8px rgba(11, 31, 58, 0.2);
+        }
+
+        .chip-active .chip-count {
+          background: rgba(255, 255, 255, 0.2);
+          color: #ffffff;
+        }
+
+        .chip-sla {
+          border-color: #fecaca;
+          background: #fff8f8;
+          color: #b91c1c;
+        }
+
+        .chip-active-sla {
+          background: #dc2626 !important;
+          border-color: #dc2626 !important;
+          color: #ffffff !important;
+          box-shadow: 0 2px 10px rgba(220, 38, 38, 0.3);
+        }
+
+        .chip-active-sla .chip-count-danger {
+          background: rgba(255, 255, 255, 0.3);
+          color: #ffffff;
+        }
+
+        .chip-count {
+          background: #e2e8f0;
+          color: #475569;
+          font-size: 0.74rem;
+          padding: 0.15rem 0.55rem;
+          border-radius: 999px;
+          font-family: var(--font-sans);
+          font-weight: 700;
+        }
+
+        .chip-count-danger {
+          background: #fee2e2;
+          color: #b91c1c;
+          font-size: 0.74rem;
+          padding: 0.15rem 0.55rem;
+          border-radius: 999px;
+          font-family: var(--font-sans);
+          font-weight: 700;
+        }
+
+        .sla-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #ef4444;
+          display: inline-block;
         }
 
         /* Results Meta Bar */
@@ -935,60 +1128,80 @@ export default function DashboardClient({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          font-size: 0.82rem;
-          color: var(--clr-text-secondary);
-          margin-bottom: 0.85rem;
-          padding: 0 0.25rem;
+          font-size: 0.85rem;
+          color: #64748b;
+          margin-bottom: 0.95rem;
+          padding: 0 0.35rem;
         }
 
-        .active-filter-tag {
+        .results-meta-left {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+        }
+
+        .active-filter-badge {
           background: #eff6ff;
           color: #1d4ed8;
           border: 1px solid #bfdbfe;
           border-radius: 6px;
-          padding: 0.15rem 0.6rem;
+          padding: 0.15rem 0.65rem;
+          font-size: 0.78rem;
           display: flex;
           align-items: center;
           gap: 0.4rem;
+          font-weight: 600;
         }
 
         .tag-remove {
           border: none;
           background: none;
           color: #1d4ed8;
-          font-weight: 700;
+          font-size: 1rem;
           cursor: pointer;
         }
 
-        /* Table Design */
+        /* Table Styling */
         .table-container {
           overflow-x: auto;
-          border-radius: 14px;
+          background: #ffffff;
+          border: 1px solid var(--clr-border);
+          border-radius: 16px;
+          box-shadow: var(--shadow-card);
         }
 
         .modern-table {
           width: 100%;
-          border-collapse: collapse;
+          border-collapse: separate;
+          border-spacing: 0;
           font-size: 0.88rem;
           text-align: left;
         }
 
         .table-head-row {
-          background: linear-gradient(90deg, #07152b 0%, #0b1f3a 100%);
-          color: #ffffff;
+          background: #f8fafc;
+          border-bottom: 2px solid #e2e8f0;
         }
 
         .table-head-row th {
-          padding: 0.95rem 0.85rem;
-          font-weight: 600;
-          font-size: 0.82rem;
+          padding: 1rem 0.95rem;
+          font-weight: 700;
+          font-size: 0.8rem;
+          color: #475569;
           letter-spacing: 0.02em;
           white-space: nowrap;
+          border-bottom: 2px solid #e2e8f0;
         }
 
         .modern-table td {
-          padding: 0.9rem 0.85rem;
+          padding: 1rem 0.95rem;
           border-bottom: 1px solid #f1f5f9;
+          vertical-align: middle;
+        }
+
+        .modern-table tbody tr:last-child td {
+          border-bottom: none;
         }
 
         .row-sla-breached {
@@ -1001,34 +1214,52 @@ export default function DashboardClient({
 
         .cell-index {
           text-align: center;
-          font-weight: 600;
+          font-weight: 700;
           color: #94a3b8;
+          font-family: var(--font-sans);
+          font-size: 0.82rem;
         }
 
         .applicant-flex {
           display: flex;
-          align-items: flex-start;
-          gap: 0.75rem;
+          align-items: center;
+          gap: 0.85rem;
         }
 
         .applicant-avatar {
-          width: 34px;
-          height: 34px;
-          border-radius: 50%;
-          background: #e2e8f0;
-          color: #0b1f3a;
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          color: #ffffff;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 700;
-          font-size: 0.88rem;
+          font-size: 1.05rem;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
           flex-shrink: 0;
+        }
+
+        .applicant-info-block {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+
+        .applicant-name-row {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
         }
 
         .applicant-name {
           font-weight: 700;
-          color: #0b1f3a;
-          font-size: 0.92rem;
+          font-size: 0.95rem;
+          color: #0f172a;
+        }
+
+        .applicant-flag-chip {
+          font-size: 0.85rem;
         }
 
         .applicant-relation {
@@ -1036,77 +1267,86 @@ export default function DashboardClient({
           color: #64748b;
         }
 
-        .applicant-id-tag {
+        .applicant-aadhaar-pill {
           font-size: 0.72rem;
-          color: #94a3b8;
+          color: #64748b;
           font-family: var(--font-sans);
-        }
-
-        .applicant-flag-note {
-          display: inline-block;
-          font-size: 0.72rem;
-          color: #b91c1c;
-          background: #fee2e2;
-          border-radius: 4px;
-          padding: 0.15rem 0.5rem;
-          margin-top: 0.25rem;
+          font-weight: 500;
         }
 
         .location-village {
-          font-weight: 600;
+          font-weight: 700;
           color: #1e293b;
+          font-size: 0.88rem;
         }
 
         .location-tehsil {
-          font-size: 0.78rem;
+          font-size: 0.76rem;
           color: #64748b;
         }
 
-        .age-badge {
+        .age-pill {
           display: inline-block;
           font-weight: 700;
-          font-size: 0.88rem;
-          border-radius: 6px;
-          padding: 0.2rem 0.6rem;
+          padding: 0.25rem 0.65rem;
+          border-radius: 999px;
+          font-size: 0.82rem;
+          font-family: var(--font-sans);
         }
 
         .age-eligible {
           background: #ecfdf5;
           color: #047857;
+          border: 1px solid #a7f3d0;
         }
 
         .age-ineligible {
           background: #fef2f2;
           color: #b91c1c;
+          border: 1px solid #fecaca;
         }
 
         .age-subtext {
           font-size: 0.72rem;
+          margin-top: 0.2rem;
           color: #64748b;
-          margin-top: 0.15rem;
+          font-weight: 500;
         }
 
         .income-amount {
-          font-weight: 600;
-          color: #1e293b;
+          font-weight: 700;
+          font-size: 0.92rem;
+          color: #0f172a;
           font-family: var(--font-sans);
         }
 
         .income-ceiling {
-          font-size: 0.72rem;
-          color: #64748b;
+          font-size: 0.74rem;
+          margin-top: 0.15rem;
+        }
+
+        .income-pass {
+          color: #059669;
+          font-weight: 600;
+        }
+
+        .income-fail {
+          color: #dc2626;
+          font-weight: 600;
         }
 
         .sla-days-wrap {
           display: flex;
-          flex-direction: column;
           align-items: center;
-          gap: 0.2rem;
+          justify-content: center;
+          gap: 0.35rem;
+          margin-bottom: 0.35rem;
         }
 
         .sla-days {
-          font-weight: 700;
           font-size: 0.88rem;
+          font-weight: 700;
+          font-family: var(--font-sans);
         }
 
         .sla-text-red {
@@ -1118,7 +1358,7 @@ export default function DashboardClient({
         }
 
         .sla-text-normal {
-          color: #334155;
+          color: #2563eb;
         }
 
         .sla-badge-pill {
@@ -1132,25 +1372,26 @@ export default function DashboardClient({
         }
 
         .sla-progress-track {
-          width: 70px;
-          height: 4px;
+          width: 80px;
+          height: 5px;
           background: #e2e8f0;
-          border-radius: 2px;
-          margin: 0.35rem auto 0;
+          border-radius: 999px;
           overflow: hidden;
+          margin: 0 auto;
         }
 
         .sla-progress-fill {
           height: 100%;
-          border-radius: 2px;
+          border-radius: 999px;
+          transition: width 0.3s ease;
         }
 
         .fill-red {
-          background: #dc2626;
+          background: #ef4444;
         }
 
         .fill-amber {
-          background: #d97706;
+          background: #f59e0b;
         }
 
         .fill-blue {
@@ -1160,17 +1401,16 @@ export default function DashboardClient({
         .status-pill-badge {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
+          gap: 0.45rem;
+          padding: 0.28rem 0.75rem;
           border-radius: 999px;
-          padding: 0.25rem 0.75rem;
           font-size: 0.78rem;
-          font-weight: 600;
-          white-space: nowrap;
+          font-weight: 700;
         }
 
         .status-dot {
-          width: 6px;
-          height: 6px;
+          width: 7px;
+          height: 7px;
           border-radius: 50%;
         }
 
@@ -1178,38 +1418,49 @@ export default function DashboardClient({
           background: #fffbeb;
           color: #b45309;
           border: 1px solid #fde68a;
-          border-radius: 999px;
-          padding: 0.2rem 0.65rem;
+          border-radius: 6px;
+          padding: 0.2rem 0.55rem;
           font-size: 0.74rem;
           font-weight: 700;
-          display: inline-block;
         }
 
         .priority-normal-badge {
           color: #94a3b8;
-          font-size: 0.78rem;
+          font-size: 0.76rem;
         }
 
+        /* Action Button */
         .btn-action-review {
-          display: inline-block;
-          background: linear-gradient(135deg, #0b1f3a 0%, #163660 100%);
-          color: #ffffff !important;
+          background: linear-gradient(135deg, #1e3a8a 0%, #0b1f3a 100%);
+          color: #ffffff;
+          padding: 0.55rem 0.95rem;
+          border-radius: 10px;
+          font-size: 0.82rem;
+          font-weight: 700;
           text-decoration: none;
-          border-radius: 8px;
-          padding: 0.45rem 0.95rem;
-          font-size: 0.8rem;
-          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
           transition: all 0.18s ease;
-          box-shadow: 0 2px 6px rgba(11, 31, 58, 0.15);
+          box-shadow: 0 2px 6px rgba(11, 31, 58, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.15);
         }
 
         .btn-action-review:hover {
-          background: linear-gradient(135deg, #163660 0%, #2563eb 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 4px 10px rgba(11, 31, 58, 0.25);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 14px rgba(11, 31, 58, 0.3);
+          background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
         }
 
-        /* Cards Grid View */
+        .btn-arrow {
+          transition: transform 0.18s ease;
+        }
+
+        .btn-action-review:hover .btn-arrow {
+          transform: translateX(3px);
+        }
+
+        /* Bento Grid Cards */
         .cards-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -1220,11 +1471,14 @@ export default function DashboardClient({
           padding: 1.35rem;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 1.15rem;
+          border-radius: 16px;
+          background: #ffffff;
         }
 
         .card-sla-breached {
-          border-left: 4px solid #dc2626 !important;
+          border-left: 4px solid #ef4444 !important;
+          background: #fffafa;
         }
 
         .card-top-row {
@@ -1234,16 +1488,16 @@ export default function DashboardClient({
         }
 
         .card-index-pill {
+          font-size: 0.74rem;
           font-weight: 700;
           color: #94a3b8;
-          font-size: 0.82rem;
+          font-family: var(--font-sans);
         }
 
         .card-badges-flex {
           display: flex;
           align-items: center;
           gap: 0.4rem;
-          flex-wrap: wrap;
         }
 
         .card-applicant-row {
@@ -1253,23 +1507,23 @@ export default function DashboardClient({
         }
 
         .applicant-avatar-lg {
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          background: #e2e8f0;
-          color: #0b1f3a;
+          width: 48px;
+          height: 48px;
+          border-radius: 14px;
+          color: #ffffff;
           display: flex;
           align-items: center;
           justify-content: center;
+          font-size: 1.3rem;
           font-weight: 700;
-          font-size: 1.1rem;
           flex-shrink: 0;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
         }
 
         .card-applicant-name {
           font-size: 1.05rem;
           font-weight: 700;
-          color: #0b1f3a;
+          color: #0f172a;
         }
 
         .card-applicant-sub {
@@ -1277,14 +1531,20 @@ export default function DashboardClient({
           color: #64748b;
         }
 
+        .card-applicant-aadhaar {
+          font-size: 0.74rem;
+          color: #64748b;
+          font-family: var(--font-sans);
+        }
+
         .card-meta-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 0.65rem;
           background: #f8fafc;
-          border: 1px solid #f1f5f9;
-          border-radius: 10px;
-          padding: 0.75rem;
+          border: 1px solid #edf2f7;
+          border-radius: 12px;
+          padding: 0.85rem;
         }
 
         .meta-box {
@@ -1296,96 +1556,84 @@ export default function DashboardClient({
         .meta-label {
           font-size: 0.72rem;
           color: #64748b;
+          font-weight: 600;
         }
 
         .meta-val {
-          font-size: 0.85rem;
+          font-size: 0.86rem;
           font-weight: 700;
-          color: #1e293b;
+          color: #0f172a;
         }
 
         .age-eligible-text {
-          color: #047857;
+          color: #059669;
         }
 
         .age-ineligible-text {
-          color: #b91c1c;
+          color: #dc2626;
         }
 
         .card-flag-note {
-          background: #fee2e2;
-          color: #b91c1c;
-          border-radius: 6px;
-          padding: 0.4rem 0.65rem;
+          background: #fffbeb;
+          border: 1px solid #fde68a;
+          color: #92400e;
           font-size: 0.76rem;
+          padding: 0.4rem 0.65rem;
+          border-radius: 8px;
+          font-weight: 500;
         }
 
         .card-footer-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding-top: 0.75rem;
           border-top: 1px solid #f1f5f9;
+          padding-top: 0.85rem;
         }
 
         .docs-count {
-          font-size: 0.76rem;
+          font-size: 0.78rem;
           color: #64748b;
+          font-weight: 600;
         }
 
         /* Empty State */
-        .empty-state-box {
-          padding: 4rem 2rem;
+        .empty-results-card {
           text-align: center;
+          padding: 3.5rem 2rem;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
 
         .empty-icon {
           font-size: 3rem;
-          opacity: 0.7;
+          opacity: 0.6;
         }
 
         .empty-title {
           font-size: 1.25rem;
           font-weight: 700;
-          color: #0b1f3a;
+          color: #0f172a;
         }
 
         .empty-desc {
-          font-size: 0.88rem;
           color: #64748b;
+          font-size: 0.9rem;
           max-width: 440px;
         }
 
         .btn-reset-filters {
-          margin-top: 0.5rem;
           background: #0b1f3a;
           color: white;
           border: none;
-          border-radius: 8px;
           padding: 0.6rem 1.25rem;
+          border-radius: 10px;
           font-size: 0.85rem;
           font-weight: 600;
           cursor: pointer;
-        }
-
-        @media (max-width: 768px) {
-          .hero-banner {
-            padding: 1.5rem;
-          }
-          .hero-title {
-            font-size: 1.45rem;
-          }
-          .kpi-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-          .toolbar-right {
-            flex-direction: column;
-            align-items: flex-start;
-          }
+          margin-top: 0.5rem;
         }
       `}</style>
     </div>
@@ -1396,9 +1644,9 @@ function KpiCard({
   label,
   value,
   icon,
+  subtext,
   color,
-  bg,
-  border,
+  accentColor,
   active,
   onClick,
   glowRed,
@@ -1406,9 +1654,9 @@ function KpiCard({
   label: string;
   value: number;
   icon: string;
+  subtext?: string;
   color: string;
-  bg: string;
-  border: string;
+  accentColor: string;
   active?: boolean;
   onClick?: () => void;
   glowRed?: boolean;
@@ -1418,57 +1666,91 @@ function KpiCard({
       type="button"
       onClick={onClick}
       style={{
-        background: bg,
-        border: `1.5px solid ${active ? color : border}`,
-        borderRadius: "14px",
-        padding: "1.1rem 1rem",
+        background: active ? "#ffffff" : "rgba(255, 255, 255, 0.9)",
+        border: `1.5px solid ${active ? accentColor : "#e2e8f0"}`,
+        borderTop: `3.5px solid ${accentColor}`,
+        borderRadius: "16px",
+        padding: "1.15rem 1rem",
         display: "flex",
         flexDirection: "column",
-        gap: "0.35rem",
+        gap: "0.45rem",
         boxShadow: glowRed
-          ? "0 0 16px -2px rgba(220, 38, 38, 0.3)"
+          ? "0 0 20px -2px rgba(239, 68, 68, 0.35)"
           : active
-          ? "0 4px 14px rgba(15,46,94,0.12)"
+          ? `0 10px 24px -4px rgba(15, 23, 42, 0.12), 0 0 0 1px ${accentColor}`
           : "var(--shadow-sm)",
         cursor: "pointer",
         textAlign: "left",
-        transition: "all 0.18s ease",
-        transform: active ? "translateY(-2px)" : "none",
+        transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+        transform: active ? "translateY(-3px)" : "none",
         position: "relative",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "1.4rem" }}>{icon}</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+        <span
+          style={{
+            fontSize: "1.25rem",
+            width: "36px",
+            height: "36px",
+            borderRadius: "10px",
+            background: `${accentColor}15`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {icon}
+        </span>
         {active && (
           <span
             style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              background: color,
+              fontSize: "0.68rem",
+              fontWeight: 700,
+              color: accentColor,
+              background: `${accentColor}18`,
+              padding: "0.15rem 0.5rem",
+              borderRadius: "999px",
             }}
-          />
+          >
+            सक्रिय
+          </span>
         )}
       </div>
+
       <div
         style={{
-          fontSize: "1.85rem",
+          fontSize: "2rem",
           fontWeight: 800,
           color,
           lineHeight: 1.1,
           fontFamily: "var(--font-sans)",
+          marginTop: "0.2rem",
         }}
       >
         {value}
       </div>
-      <div
-        style={{
-          fontSize: "0.78rem",
-          fontWeight: 600,
-          color: "#475569",
-        }}
-      >
-        {label}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+        <div
+          style={{
+            fontSize: "0.86rem",
+            fontWeight: 700,
+            color: "#1e293b",
+          }}
+        >
+          {label}
+        </div>
+        {subtext && (
+          <div
+            style={{
+              fontSize: "0.72rem",
+              color: "#64748b",
+              fontWeight: 500,
+            }}
+          >
+            {subtext}
+          </div>
+        )}
       </div>
     </button>
   );

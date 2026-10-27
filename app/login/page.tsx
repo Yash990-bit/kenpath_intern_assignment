@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [justAutofilled, setJustAutofilled] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -137,9 +138,11 @@ export default function LoginPage() {
           <div className="demo-callout-card">
             <div className="demo-callout-header">
               <div className="demo-icon">⚡</div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div className="demo-title">मूल्यांकनकर्ता / समीक्षक हेतु त्वरित लॉगिन</div>
-                <div className="demo-sub">तहसीलदार डेमो क्रेडेंशियल्स एक क्लिक में भरें</div>
+                <div className="demo-sub">
+                  अधिकारी क्रेडेंशियल्स: <code className="demo-code">officer@demo.gov.in</code> / <code className="demo-code">demo1234</code>
+                </div>
               </div>
             </div>
             <button
@@ -147,7 +150,7 @@ export default function LoginPage() {
               onClick={handleAutoFill}
               className={`btn-autofill ${justAutofilled ? "autofill-active" : ""}`}
             >
-              {justAutofilled ? "✓ क्रेडेंशियल्स भरे गए!" : "1-क्लिक ऑटोफिल (Auto-Fill Demo)"}
+              {justAutofilled ? "✓ क्रेडेंशियल्स भरे गए!" : "⚡ 1-क्लिक ऑटोफिल (Auto-Fill Demo)"}
             </button>
           </div>
 
@@ -197,7 +200,7 @@ export default function LoginPage() {
                 <span className="field-icon">🔑</span>
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   className="form-input"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -205,6 +208,15 @@ export default function LoginPage() {
                   required
                   autoComplete="current-password"
                 />
+                <button
+                  type="button"
+                  className="btn-toggle-pwd"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "पासवर्ड छिपाएं" : "पासवर्ड दिखाएं"}
+                  title={showPassword ? "पासवर्ड छिपाएं" : "पासवर्ड दिखाएं"}
+                >
+                  {showPassword ? "👁️" : "👁️‍🗨️"}
+                </button>
               </div>
             </div>
 
@@ -424,7 +436,9 @@ export default function LoginPage() {
           align-items: center;
           justify-content: center;
           padding: 3rem 2rem;
-          background: var(--clr-surface);
+          background-color: #f8fafc;
+          background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+          background-size: 24px 24px;
         }
 
         .login-box-container {
@@ -475,6 +489,18 @@ export default function LoginPage() {
         .demo-sub {
           font-size: 0.76rem;
           color: #475569;
+          line-height: 1.4;
+          margin-top: 0.15rem;
+        }
+
+        .demo-code {
+          font-family: var(--font-sans);
+          background: rgba(30, 58, 138, 0.08);
+          color: #1e3a8a;
+          padding: 0.1rem 0.35rem;
+          border-radius: 4px;
+          font-size: 0.74rem;
+          font-weight: 600;
         }
 
         .btn-autofill {
@@ -592,13 +618,33 @@ export default function LoginPage() {
           width: 100%;
           border: 1.5px solid var(--clr-border);
           border-radius: 10px;
-          padding: 0.75rem 1rem 0.75rem 2.85rem;
+          padding: 0.75rem 2.85rem 0.75rem 2.85rem;
           font-family: var(--font-devanagari);
           font-size: 0.95rem;
           color: var(--clr-text);
           background: #ffffff;
           transition: border-color 0.18s ease, box-shadow 0.18s ease;
           outline: none;
+        }
+
+        .btn-toggle-pwd {
+          position: absolute;
+          right: 0.75rem;
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 1.1rem;
+          padding: 0.25rem;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0.6;
+          transition: opacity 0.15s ease;
+        }
+
+        .btn-toggle-pwd:hover {
+          opacity: 1;
         }
 
         .form-input:focus {

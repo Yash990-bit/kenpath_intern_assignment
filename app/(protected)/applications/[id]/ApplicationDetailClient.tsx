@@ -23,6 +23,36 @@ interface ApplicationWithAudit extends Application {
   auditLogs: AuditLogWithOfficer[];
 }
 
+const PRESET_REASONS: Record<DecisionType, string[]> = {
+  APPROVE: [
+    "सभी 6 अनिवार्य दस्तावेज़ संलग्न एवं आयु (60+ वर्ष) व वार्षिक आय वैधानिक मानकों के अनुरूप सत्यापित हैं।",
+    "बैंक खाता आवेदक के नाम पर सत्यापित पाया गया। डीबीटी अंतरण हेतु पेंशन स्वीकृति प्रदान की जाती है।",
+  ],
+  REJECT: [
+    "आवेदक की आयु 60 वर्ष से कम होने के कारण हरियाणा वृद्धावस्था सम्मान भत्ता नियम 1991 के तहत अपात्र।",
+    "वार्षिक आय ₹2,00,000 की वैधानिक सीमा से अधिक होने के कारण आवेदन निरस्त किया जाता है।",
+  ],
+  RETURN: [
+    "अनिवार्य दस्तावेज़ (आय प्रमाण पत्र / बैंक पासबुक) संलग्न करने हेतु आवेदन वापस लौटाया जाता है।",
+    "बैंक खाता धारक का नाम आवेदक के नाम से भिन्न है, सही खाता विवरण संलग्न करने हेतु वापस लौटाएं।",
+  ],
+};
+
+const AVATAR_GRADIENTS = [
+  "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+  "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+  "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+  "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+  "linear-gradient(135deg, #ec4899 0%, #be185d 100%)",
+  "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
+];
+
+function getAvatarGradient(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i);
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+}
+
 export default function ApplicationDetailClient({
   application: initialApp,
   initialAnalysis,
@@ -35,11 +65,10 @@ export default function ApplicationDetailClient({
   const [app, setApp] = useState<ApplicationWithAudit>(initialApp);
   const [analysis, setAnalysis] = useState<AIAnalysisResult>(initialAnalysis);
   const [isRefreshingAi, setIsRefreshingAi] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
 
   // Officer decision form state
-  const [selectedDecision, setSelectedDecision] = useState<DecisionType | null>(
-    null
-  );
+  const [selectedDecision, setSelectedDecision] = useState<DecisionType | null>(null);
   const [reason, setReason] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -53,6 +82,13 @@ export default function ApplicationDetailClient({
   const isIncomeHigh = app.annualIncome > MAX_ANNUAL_INCOME_INR;
   const isBankHolderMismatch =
     app.applicantName.trim().toLowerCase() !== app.bankAccountHolder.trim().toLowerCase();
+
+  // Copy ID helper
+  const handleCopyId = () => {
+    navigator.clipboard.writeText(app.id);
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
+  };
 
   // Refresh AI Analysis via API with ?force=true
   const handleRefreshAi = async () => {
@@ -179,16 +215,23 @@ export default function ApplicationDetailClient({
   return (
     <div style={{ fontFamily: "var(--font-devanagari)", paddingBottom: "4rem" }}>
       {/* ─── Top Sticky Command Bar ────────────────────────────────────────── */}
-      <div className="command-bar executive-card">
+      <div className="command-bar executive-card glass-panel">
         <div className="command-left">
           <Link href="/dashboard" className="btn-back">
-            <span>←</span> डैशबोर्ड पर वापस
+            <span className="btn-back-arrow">←</span>
+            <span>डैशबोर्ड</span>
           </Link>
 
-          <div className="applicant-id-pill">
+          <button
+            type="button"
+            onClick={handleCopyId}
+            className="applicant-id-pill"
+            title="आवेदन आईडी कॉपी करें"
+          >
             <span className="id-label">आवेदन सं:</span>
             <code className="id-code">{app.id}</code>
-          </div>
+            <span className="copy-icon">{copiedId ? "✓ कॉपी हुआ" : "📋"}</span>
+          </button>
 
           <span
             className="status-pill"
@@ -210,6 +253,7 @@ export default function ApplicationDetailClient({
 
           {isSlaBreach && (
             <span className="badge-sla-breached">
+              <span className="sla-dot pulse-dot"></span>
               🚨 SLA अतिदेय ({daysPending} दिन)
             </span>
           )}
@@ -217,32 +261,58 @@ export default function ApplicationDetailClient({
 
         <div className="command-right">
           <span className="sub-date">
-            आवेदन तिथि:{" "}
-            {new Date(app.submittedAt).toLocaleDateString("hi-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
+            📅 आवेदन तिथि:{" "}
+            <strong>
+              {new Date(app.submittedAt).toLocaleDateString("hi-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </strong>{" "}
+            ({daysPending} दिन पूर्व)
           </span>
         </div>
       </div>
 
-      {/* ─── Applicant Name Hero Strip ─────────────────────────────────────── */}
+      {/* ─── Citizen Dossier Hero Card ─────────────────────────────────────── */}
       <div className="applicant-hero-card executive-card">
-        <div className="hero-avatar">
+        <div
+          className="hero-avatar"
+          style={{ background: getAvatarGradient(app.applicantName) }}
+        >
           {app.applicantName[0]}
         </div>
         <div className="hero-info">
           <div className="hero-title-row">
-            <h1 className="hero-applicant-name">{app.applicantName}</h1>
+            <h1 className="hero-applicant-name">
+              {app.applicantName}
+              <span className="verified-badge" title="पंजीकृत आवेदक">✓</span>
+            </h1>
             <span className="hero-sub-relation">
-              आत्मज/पत्नी: {app.fatherHusbandName}
+              आत्मज/पत्नी: <strong>{app.fatherHusbandName}</strong>
             </span>
           </div>
+
           <div className="hero-tags-row">
             <span className="tag-item">📍 {app.village}, तहसील {app.tehsil}, जिला {app.district}</span>
             <span className="tag-item">🆔 आधार: {app.aadhaarMasked}</span>
             <span className="tag-item">⏱️ प्रतीक्षा काल: {daysPending} दिन</span>
+          </div>
+
+          {/* Quick Eligibility Snapshot Pills */}
+          <div className="hero-snapshot-row">
+            <span className={`snapshot-pill ${age >= 60 ? "snap-pass" : "snap-fail"}`}>
+              {age >= 60 ? "✓ आयु पात्र" : "✕ आयु अपात्र"} ({age} वर्ष)
+            </span>
+            <span className={`snapshot-pill ${app.annualIncome <= 200000 ? "snap-pass" : "snap-fail"}`}>
+              {app.annualIncome <= 200000 ? "✓ आय सीमा के अंतर्गत" : "✕ आय सीमा से अधिक"} (₹{app.annualIncome.toLocaleString("hi-IN")})
+            </span>
+            <span className={`snapshot-pill ${!isBankHolderMismatch ? "snap-pass" : "snap-warn"}`}>
+              {!isBankHolderMismatch ? "✓ बैंक खाता सत्यापित" : "⚠️ बैंक खाता नाम भिन्न"}
+            </span>
+            <span className="snapshot-pill snap-info">
+              📂 {6 - analysis.missingDocuments.length}/6 दस्तावेज़ संलग्न
+            </span>
           </div>
         </div>
       </div>
@@ -258,7 +328,7 @@ export default function ApplicationDetailClient({
                 <span className="card-header-icon">👤</span>
                 <div>
                   <h2 className="card-header-title">व्यक्तिगत एवं पात्रता विवरण</h2>
-                  <p className="card-header-sub">हरियाणा वृद्धावस्था पेंशन पात्रता मानदंड 1991</p>
+                  <p className="card-header-sub">हरियाणा वृद्धावस्था पेंशन पात्रता नियम 1991</p>
                 </div>
               </div>
             </div>
@@ -278,7 +348,7 @@ export default function ApplicationDetailClient({
                 value={`${new Date(app.dob).toLocaleDateString("hi-IN")} (${age} वर्ष)`}
                 highlight={isUnderage ? "red" : "green"}
                 badge={isUnderage ? "अपात्र (<60 वर्ष)" : "पात्र (60+ वर्ष)"}
-                note={isUnderage ? "नियम: आवेदक की आयु कम से कम 60 वर्ष पूर्ण होनी चाहिए" : undefined}
+                note={isUnderage ? "नियम: आवेदक की आयु कम से कम 60 वर्ष पूर्ण होनी चाहिए" : "वैधानिक न्यूनतम आयु 60 वर्ष पूरी है"}
               />
 
               <InfoField
@@ -286,7 +356,7 @@ export default function ApplicationDetailClient({
                 value={`₹${app.annualIncome.toLocaleString("hi-IN")} / वर्ष`}
                 highlight={isIncomeHigh ? "red" : "green"}
                 badge={isIncomeHigh ? "सीमा से अधिक" : "सीमा के अंतर्गत"}
-                note={isIncomeHigh ? "नियम: पति-पत्नी की कुल वार्षिक आय ₹2,00,000 से अधिक न हो" : "वैधानिक सीमा ₹2,00,000 के भीतर"}
+                note={isIncomeHigh ? "नियम: कुल वार्षिक आय ₹2,00,000 से अधिक न हो" : "वैधानिक सीमा ₹2,00,000 के भीतर"}
               />
 
               <InfoField
@@ -299,7 +369,7 @@ export default function ApplicationDetailClient({
               />
 
               <InfoField
-                label="आधार संख्या (Masked)"
+                label="आधार संख्या (मास्क्ड)"
                 value={app.aadhaarMasked}
               />
               <InfoField
@@ -341,7 +411,7 @@ export default function ApplicationDetailClient({
                     : "खाता धारक का नाम पूर्णतः मेल खाता है"}
                 </div>
                 <div className="match-desc">
-                  आवेदक: <strong>{app.applicantName}</strong> ⟷ बैंक पासबुक:{" "}
+                  आवेदक नाम: <strong>{app.applicantName}</strong> ⟷ बैंक पासबुक:{" "}
                   <strong>{app.bankAccountHolder}</strong>
                 </div>
               </div>
@@ -362,7 +432,7 @@ export default function ApplicationDetailClient({
                 value={app.bankIFSC}
               />
               <InfoField
-                label="डीबीटी (DBT) पात्रता"
+                label="डीबीटी (DBT) अंतरण पात्रता"
                 value={isBankHolderMismatch ? "सत्यापन अपेक्षित" : "सक्रिय एवं मान्य"}
                 highlight={isBankHolderMismatch ? "red" : "green"}
               />
@@ -376,7 +446,7 @@ export default function ApplicationDetailClient({
                 <span className="card-header-icon">📂</span>
                 <div>
                   <h2 className="card-header-title">अनिवार्य दस्तावेज़ सत्यापन पोर्टफोलियो</h2>
-                  <p className="card-header-sub">हरियाणा समाज कल्याण नियम अनुसार आवश्यक प्रमाण</p>
+                  <p className="card-header-sub">हरियाणा समाज कल्याण नियम अनुसार आवश्यक 6 प्रमाण</p>
                 </div>
               </div>
               <span className="doc-count-tag">
@@ -425,7 +495,7 @@ export default function ApplicationDetailClient({
 
                     <div className="doc-right">
                       {isMissing && (
-                        <span className="doc-pill pill-red">लापता (Missing)</span>
+                        <span className="doc-pill pill-red">लापता</span>
                       )}
                       {isExpired && (
                         <span className="doc-pill pill-amber">वैधता समाप्त</span>
@@ -451,7 +521,7 @@ export default function ApplicationDetailClient({
                 <div>
                   <div className="ai-header-title">Google Gemini AI समीक्षा सह-पायलट</div>
                   <div className="ai-header-sub">
-                    इंजन: {analysis.source === "GEMINI_AI" ? "Gemini 2.5 Pro Model" : "नियम-आधारित इंजन (Rule Engine)"}
+                    इंजन: {analysis.source === "GEMINI_AI" ? "Gemini 2.5 Flash / Pro" : "स्थानीय नियम इंजन (Rule Engine)"}
                   </div>
                 </div>
               </div>
@@ -511,7 +581,33 @@ export default function ApplicationDetailClient({
                 <p className="rec-summary-text">{analysis.summary}</p>
               </div>
 
-              {/* Actionable Findings List */}
+              {/* Actionable Discrepancies (Inconsistencies) with Severity Tags */}
+              {analysis.inconsistencies && analysis.inconsistencies.length > 0 && (
+                <div className="inconsistencies-section">
+                  <div className="section-subtitle">
+                    ⚠️ पहचानी गई विसंगतियाँ ({analysis.inconsistencies.length})
+                  </div>
+                  <div className="inconsistencies-list">
+                    {analysis.inconsistencies.map((item, idx) => (
+                      <div key={idx} className={`inconsistency-card inc-${item.severity.toLowerCase()}`}>
+                        <div className="inc-header">
+                          <span className={`inc-severity-tag tag-${item.severity.toLowerCase()}`}>
+                            {item.severity === "CRITICAL"
+                              ? "🚨 गंभीर (Critical)"
+                              : item.severity === "WARNING"
+                              ? "⚠️ चेतावनी (Warning)"
+                              : "ℹ️ सूचना (Info)"}
+                          </span>
+                          <span className="inc-field">{item.fieldOrDoc}</span>
+                        </div>
+                        <p className="inc-issue">{item.issue}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actionable Findings / Reasons List */}
               <div className="findings-section">
                 <div className="findings-header">
                   <span>विस्तृत जाँच निष्कर्ष ({analysis.reasons.length})</span>
@@ -574,7 +670,7 @@ export default function ApplicationDetailClient({
                   </span>
                 </div>
                 <p className="decided-sub">
-                  हरियाणा लोक सेवा अधिकार अधिनियम व ऑडिट ट्रेल सुरक्षा नियमों के तहत अंतिम रूप से स्वीकृत अथवा अस्वीकृत आवेदनों पर दोहरा निर्णय प्रतिबन्धित है।
+                  हरियाणा लोक सेवा अधिकार अधिनियम व डिजिटल ऑडिट ट्रेल नियमों के तहत अंतिम रूप से स्वीकृत अथवा अस्वीकृत आवेदनों पर दोहरा निर्णय प्रतिबन्धित है।
                 </p>
               </div>
             ) : (
@@ -632,6 +728,28 @@ export default function ApplicationDetailClient({
                     </button>
                   </div>
                 </div>
+
+                {/* Quick Presets for Selected Decision */}
+                {selectedDecision && PRESET_REASONS[selectedDecision] && (
+                  <div className="preset-reasons-wrap">
+                    <span className="preset-label">त्वरित कारण चुनें:</span>
+                    <div className="preset-buttons">
+                      {PRESET_REASONS[selectedDecision].map((p, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setReason(p);
+                            if (formError) setFormError(null);
+                          }}
+                          className="preset-btn"
+                        >
+                          + {p.slice(0, 45)}…
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Override Alert Warning */}
                 {isOverriddenChoice && (
@@ -713,7 +831,8 @@ export default function ApplicationDetailClient({
 
             {app.auditLogs.length === 0 ? (
               <div className="empty-audit-box">
-                इस आवेदन पर पूर्व में कोई कार्यवाही दर्ज नहीं हुई है।
+                <span className="empty-audit-icon">🛡️</span>
+                <p>इस आवेदन पर पूर्व में कोई कार्यवाही दर्ज नहीं हुई है। आपका निर्णय पहला ऑडिट रिकॉर्ड बनेगा।</p>
               </div>
             ) : (
               <div className="audit-timeline">
@@ -804,7 +923,7 @@ export default function ApplicationDetailClient({
               </div>
             </div>
 
-            <div className="modal-actions-row">
+            <div className="modal-actions">
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
@@ -815,26 +934,26 @@ export default function ApplicationDetailClient({
               <button
                 type="button"
                 onClick={handleConfirmDecision}
-                disabled={isPending}
                 className="btn-modal-confirm"
               >
-                {isPending ? "दर्ज किया जा रहा है…" : "हाँ, निर्णय दर्ज करें"}
+                हाँ, निर्णय पुष्टि करें
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* ─── Scoped Stylesheet for Application Detail ──────────────────────── */}
       <style jsx>{`
-        /* Command Bar */
         .command-bar {
-          padding: 0.95rem 1.35rem;
-          margin-bottom: 1.35rem;
+          padding: 1rem 1.5rem;
+          margin-bottom: 1.5rem;
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 1rem;
+          gap: 1.25rem;
+          border-radius: 16px;
         }
 
         .command-left {
@@ -846,37 +965,52 @@ export default function ApplicationDetailClient({
 
         .btn-back {
           text-decoration: none;
-          background: #f1f5f9;
-          border: 1px solid #cbd5e1;
+          background: #ffffff;
+          border: 1.5px solid #cbd5e1;
           color: #0b1f3a;
-          padding: 0.4rem 0.85rem;
-          border-radius: 8px;
-          font-size: 0.82rem;
-          font-weight: 600;
+          padding: 0.45rem 0.95rem;
+          border-radius: 10px;
+          font-size: 0.85rem;
+          font-weight: 700;
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
-          transition: all 0.15s ease;
+          gap: 0.5rem;
+          transition: all 0.18s ease;
+          box-shadow: var(--shadow-xs);
         }
 
         .btn-back:hover {
-          background: #e2e8f0;
-          transform: translateX(-2px);
+          background: #f1f5f9;
+          transform: translateX(-3px);
+          border-color: #94a3b8;
+        }
+
+        .btn-back-arrow {
+          font-size: 1.05rem;
+          transition: transform 0.18s ease;
         }
 
         .applicant-id-pill {
           background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 6px;
-          padding: 0.35rem 0.75rem;
-          font-size: 0.78rem;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 0.4rem 0.85rem;
+          font-size: 0.8rem;
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
+          gap: 0.45rem;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .applicant-id-pill:hover {
+          background: #f1f5f9;
+          border-color: #cbd5e1;
         }
 
         .id-label {
           color: #64748b;
+          font-weight: 600;
         }
 
         .id-code {
@@ -885,113 +1019,186 @@ export default function ApplicationDetailClient({
           font-family: var(--font-sans);
         }
 
+        .copy-icon {
+          font-size: 0.8rem;
+          color: #3b82f6;
+        }
+
         .status-pill {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.3rem 0.85rem;
+          gap: 0.45rem;
+          padding: 0.35rem 0.95rem;
           border-radius: 999px;
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           font-weight: 700;
         }
 
         .dot {
-          width: 7px;
-          height: 7px;
+          width: 8px;
+          height: 8px;
           border-radius: 50%;
         }
 
         .badge-high-priority {
           background: #fffbeb;
           color: #b45309;
-          border: 1px solid #fde68a;
+          border: 1.5px solid #fde68a;
           border-radius: 999px;
-          padding: 0.3rem 0.8rem;
-          font-size: 0.76rem;
+          padding: 0.35rem 0.85rem;
+          font-size: 0.8rem;
           font-weight: 700;
         }
 
         .badge-sla-breached {
           background: #fef2f2;
           color: #b91c1c;
-          border: 1px solid #fecaca;
+          border: 1.5px solid #fecaca;
           border-radius: 999px;
-          padding: 0.3rem 0.8rem;
-          font-size: 0.76rem;
+          padding: 0.35rem 0.85rem;
+          font-size: 0.8rem;
           font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+        }
+
+        .sla-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #ef4444;
         }
 
         .command-right {
-          font-size: 0.8rem;
+          font-size: 0.85rem;
           color: #64748b;
         }
 
-        /* Applicant Hero */
+        /* Applicant Hero Card */
         .applicant-hero-card {
-          padding: 1.5rem 1.75rem;
-          margin-bottom: 1.75rem;
+          padding: 1.75rem 2rem;
+          margin-bottom: 2rem;
           display: flex;
           align-items: center;
-          gap: 1.25rem;
+          gap: 1.5rem;
           background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          border-radius: 20px;
+          position: relative;
         }
 
         .hero-avatar {
-          width: 58px;
-          height: 58px;
-          border-radius: 16px;
-          background: linear-gradient(135deg, #0b1f3a 0%, #163660 100%);
+          width: 68px;
+          height: 68px;
+          border-radius: 20px;
           color: #ffffff;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.6rem;
-          font-weight: 700;
+          font-size: 2rem;
+          font-weight: 800;
           flex-shrink: 0;
-          box-shadow: 0 4px 12px rgba(11, 31, 58, 0.2);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
         }
 
         .hero-info {
           display: flex;
           flex-direction: column;
-          gap: 0.35rem;
+          gap: 0.45rem;
+          flex: 1;
         }
 
         .hero-title-row {
           display: flex;
-          align-items: baseline;
-          gap: 0.85rem;
+          align-items: center;
+          gap: 1rem;
           flex-wrap: wrap;
         }
 
         .hero-applicant-name {
-          font-size: 1.65rem;
+          font-size: 1.75rem;
           font-weight: 800;
-          color: #0b1f3a;
-          letter-spacing: -0.01em;
+          color: #0f172a;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .verified-badge {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: #10b981;
+          color: white;
+          font-size: 0.8rem;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .hero-sub-relation {
           font-size: 0.95rem;
-          color: #475569;
-          font-weight: 500;
+          color: #64748b;
         }
 
         .hero-tags-row {
           display: flex;
-          align-items: center;
-          gap: 1.25rem;
-          font-size: 0.82rem;
-          color: #64748b;
+          gap: 0.75rem;
           flex-wrap: wrap;
         }
 
-        /* Review Grid */
+        .tag-item {
+          font-size: 0.84rem;
+          color: #475569;
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          padding: 0.25rem 0.75rem;
+          border-radius: 8px;
+        }
+
+        .hero-snapshot-row {
+          display: flex;
+          gap: 0.65rem;
+          flex-wrap: wrap;
+          margin-top: 0.35rem;
+        }
+
+        .snapshot-pill {
+          font-size: 0.78rem;
+          font-weight: 700;
+          padding: 0.2rem 0.65rem;
+          border-radius: 6px;
+        }
+
+        .snap-pass {
+          background: #ecfdf5;
+          color: #047857;
+          border: 1px solid #a7f3d0;
+        }
+
+        .snap-fail {
+          background: #fef2f2;
+          color: #b91c1c;
+          border: 1px solid #fecaca;
+        }
+
+        .snap-warn {
+          background: #fffbeb;
+          color: #b45309;
+          border: 1px solid #fde68a;
+        }
+
+        .snap-info {
+          background: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+        }
+
+        /* 2-Column Review Grid */
         .review-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1.15fr 0.95fr;
           gap: 1.75rem;
-          align-items: start;
         }
 
         .column-left,
@@ -1001,69 +1208,77 @@ export default function ApplicationDetailClient({
           gap: 1.75rem;
         }
 
+        /* Detail Cards */
         .detail-card {
-          padding: 1.5rem;
+          padding: 1.5rem 1.75rem;
         }
 
         .card-header-styled {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding-bottom: 0.85rem;
-          border-bottom: 1.5px solid #e2e8f0;
+          padding-bottom: 1.15rem;
+          border-bottom: 1px solid #f1f5f9;
           margin-bottom: 1.25rem;
         }
 
         .card-title-flex {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
 
         .card-header-icon {
-          font-size: 1.35rem;
+          font-size: 1.5rem;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          background: #f1f5fa;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .card-header-title {
           font-size: 1.15rem;
-          font-weight: 700;
+          font-weight: 800;
           color: #0b1f3a;
         }
 
         .card-header-sub {
-          font-size: 0.76rem;
+          font-size: 0.78rem;
           color: #64748b;
+          margin-top: 0.15rem;
         }
 
         .doc-count-tag {
-          background: #ecfdf5;
-          color: #047857;
-          border: 1px solid #a7f3d0;
+          background: #f1f5f9;
+          border: 1px solid #cbd5e1;
+          color: #0b1f3a;
+          padding: 0.25rem 0.75rem;
           border-radius: 999px;
-          padding: 0.2rem 0.65rem;
-          font-size: 0.76rem;
+          font-size: 0.78rem;
           font-weight: 700;
         }
 
-        /* Fields Grid */
         .fields-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 1.25rem 1rem;
+          gap: 1.25rem 1.15rem;
         }
 
         /* Bank Match Banner */
         .bank-match-banner {
-          border-radius: 10px;
-          padding: 0.85rem 1rem;
+          border-radius: 12px;
+          padding: 1rem 1.25rem;
           display: flex;
           align-items: center;
-          gap: 0.85rem;
+          gap: 1rem;
         }
 
         .match-banner-success {
           background: #ecfdf5;
-          border: 1px solid #a7f3d0;
+          border: 1.5px solid #a7f3d0;
           color: #047857;
         }
 
@@ -1074,76 +1289,77 @@ export default function ApplicationDetailClient({
         }
 
         .match-icon {
-          font-size: 1.4rem;
+          font-size: 1.6rem;
         }
 
         .match-title {
-          font-weight: 700;
-          font-size: 0.88rem;
+          font-weight: 800;
+          font-size: 0.95rem;
         }
 
         .match-desc {
-          font-size: 0.8rem;
-          opacity: 0.9;
-          margin-top: 0.15rem;
+          font-size: 0.84rem;
+          opacity: 0.95;
+          margin-top: 0.2rem;
         }
 
         /* Docs List */
         .docs-list {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
 
         .doc-item {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0.85rem 1rem;
-          border-radius: 10px;
+          padding: 1rem 1.15rem;
+          border-radius: 12px;
           transition: background 0.15s ease;
         }
 
         .doc-valid {
           background: #f8fafc;
-          border: 1px solid #e2e8f0;
+          border: 1.5px solid #e2e8f0;
         }
 
         .doc-missing {
           background: #fef2f2;
-          border: 1px solid #fecaca;
+          border: 1.5px solid #fecaca;
         }
 
         .doc-expired {
           background: #fffbeb;
-          border: 1px solid #fde68a;
+          border: 1.5px solid #fde68a;
         }
 
         .doc-left {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
 
         .doc-status-icon {
-          font-size: 1.15rem;
+          font-size: 1.25rem;
         }
 
         .doc-name {
-          font-weight: 600;
-          font-size: 0.88rem;
+          font-weight: 700;
+          font-size: 0.92rem;
           color: #0b1f3a;
         }
 
         .doc-status-sub {
-          font-size: 0.74rem;
+          font-size: 0.76rem;
           color: #64748b;
+          margin-top: 0.15rem;
         }
 
         .doc-pill {
-          padding: 0.2rem 0.6rem;
+          padding: 0.25rem 0.75rem;
           border-radius: 6px;
-          font-size: 0.74rem;
+          font-size: 0.78rem;
           font-weight: 700;
         }
 
@@ -1168,14 +1384,15 @@ export default function ApplicationDetailClient({
         /* AI Copilot Station */
         .ai-station-card {
           border: 2px solid #818cf8;
-          box-shadow: var(--shadow-glow-ai);
+          box-shadow: 0 0 24px -2px rgba(99, 102, 241, 0.25);
           overflow: hidden;
+          border-radius: 20px;
         }
 
         .ai-station-header {
           background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
           color: white;
-          padding: 1.15rem 1.35rem;
+          padding: 1.25rem 1.5rem;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1184,65 +1401,68 @@ export default function ApplicationDetailClient({
         .ai-header-left {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
 
         .ai-sparkle-icon {
-          font-size: 1.4rem;
+          font-size: 1.6rem;
+          animation: pulse-subtle 2s infinite ease-in-out;
         }
 
         .ai-header-title {
-          font-weight: 700;
-          font-size: 1.05rem;
+          font-weight: 800;
+          font-size: 1.15rem;
           color: #ffffff;
         }
 
         .ai-header-sub {
-          font-size: 0.74rem;
+          font-size: 0.76rem;
           color: #c7d2fe;
+          margin-top: 0.15rem;
         }
 
         .btn-refresh-ai {
           background: rgba(255, 255, 255, 0.15);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          border-radius: 10px;
           color: white;
-          padding: 0.4rem 0.85rem;
-          font-size: 0.78rem;
-          font-weight: 600;
+          padding: 0.45rem 0.95rem;
+          font-size: 0.82rem;
+          font-weight: 700;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.18s ease;
           font-family: var(--font-devanagari);
         }
 
         .btn-refresh-ai:hover {
-          background: rgba(255, 255, 255, 0.25);
+          background: rgba(255, 255, 255, 0.3);
+          transform: translateY(-1px);
         }
 
         .ai-disclaimer-strip {
           background: #f8fafc;
           border-bottom: 1px solid #e2e8f0;
-          padding: 0.55rem 1.25rem;
-          font-size: 0.76rem;
+          padding: 0.65rem 1.35rem;
+          font-size: 0.78rem;
           color: #475569;
           display: flex;
           align-items: center;
-          gap: 0.45rem;
+          gap: 0.5rem;
         }
 
         .ai-content-body {
-          padding: 1.35rem;
+          padding: 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
+          gap: 1.35rem;
         }
 
         .ai-rec-banner {
-          border-radius: 12px;
-          padding: 1.15rem;
+          border-radius: 14px;
+          padding: 1.25rem;
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
 
         .rec-approve {
@@ -1265,18 +1485,18 @@ export default function ApplicationDetailClient({
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
 
         .rec-decision-pill {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.6rem;
         }
 
         .rec-text {
-          font-weight: 700;
-          font-size: 0.95rem;
+          font-weight: 800;
+          font-size: 1rem;
           color: #0b1f3a;
         }
 
@@ -1285,12 +1505,12 @@ export default function ApplicationDetailClient({
           color: #ffffff;
           border: none;
           border-radius: 8px;
-          padding: 0.45rem 0.9rem;
-          font-size: 0.8rem;
+          padding: 0.5rem 1rem;
+          font-size: 0.82rem;
           font-weight: 700;
           cursor: pointer;
           transition: all 0.18s ease;
-          box-shadow: 0 2px 6px rgba(11, 31, 58, 0.2);
+          box-shadow: 0 4px 12px rgba(11, 31, 58, 0.25);
         }
 
         .btn-apply-ai:hover {
@@ -1299,61 +1519,145 @@ export default function ApplicationDetailClient({
         }
 
         .rec-summary-text {
+          font-size: 0.9rem;
+          line-height: 1.6;
+          color: #1e293b;
+        }
+
+        /* Inconsistencies section */
+        .inconsistencies-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+        }
+
+        .section-subtitle {
           font-size: 0.86rem;
-          line-height: 1.5;
-          color: #334155;
+          font-weight: 800;
+          color: #0f172a;
+        }
+
+        .inconsistencies-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+        }
+
+        .inconsistency-card {
+          border-radius: 10px;
+          padding: 0.85rem 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+
+        .inc-critical {
+          background: #fef2f2;
+          border: 1.5px solid #fecaca;
+        }
+
+        .inc-warning {
+          background: #fffbeb;
+          border: 1.5px solid #fde68a;
+        }
+
+        .inc-info {
+          background: #eff6ff;
+          border: 1.5px solid #bfdbfe;
+        }
+
+        .inc-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+        }
+
+        .inc-severity-tag {
+          font-size: 0.72rem;
+          font-weight: 800;
+          padding: 0.15rem 0.5rem;
+          border-radius: 6px;
+        }
+
+        .tag-critical {
+          background: #dc2626;
+          color: white;
+        }
+
+        .tag-warning {
+          background: #d97706;
+          color: white;
+        }
+
+        .tag-info {
+          background: #2563eb;
+          color: white;
+        }
+
+        .inc-field {
+          font-size: 0.78rem;
+          color: #475569;
+          font-weight: 600;
+        }
+
+        .inc-issue {
+          font-size: 0.84rem;
+          color: #1e293b;
+          line-height: 1.45;
         }
 
         .findings-section {
           background: #f8fafc;
           border: 1px solid #e2e8f0;
-          border-radius: 10px;
-          padding: 1rem;
+          border-radius: 12px;
+          padding: 1.15rem;
         }
 
         .findings-header {
-          font-size: 0.84rem;
-          font-weight: 700;
+          font-size: 0.88rem;
+          font-weight: 800;
           color: #1e293b;
-          margin-bottom: 0.65rem;
+          margin-bottom: 0.75rem;
         }
 
         .findings-list {
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
+          gap: 0.5rem;
         }
 
         .finding-row {
           display: flex;
           align-items: flex-start;
-          gap: 0.5rem;
-          font-size: 0.84rem;
+          gap: 0.6rem;
+          font-size: 0.86rem;
           color: #334155;
-          line-height: 1.4;
+          line-height: 1.5;
         }
 
         .finding-bullet {
           color: #6366f1;
-          font-weight: 700;
+          font-weight: 800;
         }
 
         /* Decision Station */
         .decision-station-card {
-          padding: 1.5rem;
+          padding: 1.75rem;
+          border-radius: 20px;
         }
 
         .decision-form {
           display: flex;
           flex-direction: column;
-          gap: 1.35rem;
+          gap: 1.5rem;
         }
 
         .section-field-label {
-          font-size: 0.88rem;
-          font-weight: 700;
-          color: #1e293b;
-          margin-bottom: 0.5rem;
+          font-size: 0.92rem;
+          font-weight: 800;
+          color: #0f172a;
+          margin-bottom: 0.65rem;
           display: block;
         }
 
@@ -1364,34 +1668,34 @@ export default function ApplicationDetailClient({
         .decision-options-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 0.85rem;
+          gap: 0.95rem;
         }
 
         .decision-btn {
-          border-radius: 12px;
-          padding: 1rem 0.5rem;
+          border-radius: 14px;
+          padding: 1.15rem 0.65rem;
           border: 2px solid #e2e8f0;
           background: #ffffff;
           cursor: pointer;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.3rem;
-          transition: all 0.18s ease;
+          gap: 0.35rem;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
           font-family: var(--font-devanagari);
         }
 
         .decision-btn-icon {
-          font-size: 1.4rem;
+          font-size: 1.5rem;
         }
 
         .decision-btn-label {
-          font-size: 0.92rem;
-          font-weight: 700;
+          font-size: 0.95rem;
+          font-weight: 800;
         }
 
         .decision-btn-sub {
-          font-size: 0.72rem;
+          font-size: 0.74rem;
           opacity: 0.7;
           font-family: var(--font-sans);
         }
@@ -1418,41 +1722,83 @@ export default function ApplicationDetailClient({
         }
 
         .opt-active {
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
           transform: translateY(-2px);
+        }
+
+        /* Preset Reasons */
+        .preset-reasons-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 0.45rem;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 0.75rem 0.95rem;
+        }
+
+        .preset-label {
+          font-size: 0.74rem;
+          color: #64748b;
+          font-weight: 700;
+        }
+
+        .preset-buttons {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+
+        .preset-btn {
+          background: white;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 0.4rem 0.65rem;
+          font-size: 0.78rem;
+          color: #1e293b;
+          text-align: left;
+          cursor: pointer;
+          font-family: var(--font-devanagari);
+          transition: background 0.15s ease;
+        }
+
+        .preset-btn:hover {
+          background: #eff6ff;
+          border-color: #93c5fd;
+          color: #1d4ed8;
         }
 
         .override-warning-box {
           background: #fffbeb;
           border: 1.5px solid #fde68a;
-          border-radius: 10px;
-          padding: 0.85rem 1rem;
+          border-radius: 12px;
+          padding: 1rem 1.15rem;
           display: flex;
           align-items: flex-start;
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
 
         .override-icon {
-          font-size: 1.3rem;
+          font-size: 1.4rem;
         }
 
         .override-title {
-          font-weight: 700;
-          font-size: 0.86rem;
+          font-weight: 800;
+          font-size: 0.9rem;
           color: #b45309;
         }
 
         .override-desc {
-          font-size: 0.78rem;
+          font-size: 0.82rem;
           color: #92400e;
-          line-height: 1.4;
-          margin-top: 0.2rem;
+          line-height: 1.45;
+          margin-top: 0.25rem;
         }
 
         .reason-input-group {
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
+          gap: 0.45rem;
         }
 
         .reason-header-row {
@@ -1465,8 +1811,8 @@ export default function ApplicationDetailClient({
           background: none;
           border: none;
           color: #2563eb;
-          font-size: 0.78rem;
-          font-weight: 600;
+          font-size: 0.82rem;
+          font-weight: 700;
           cursor: pointer;
           text-decoration: underline;
         }
@@ -1474,114 +1820,124 @@ export default function ApplicationDetailClient({
         .reason-textarea {
           width: 100%;
           border: 1.5px solid #cbd5e1;
-          border-radius: 10px;
-          padding: 0.85rem 1rem;
+          border-radius: 12px;
+          padding: 0.95rem 1.15rem;
           font-family: var(--font-devanagari);
-          font-size: 0.92rem;
+          font-size: 0.95rem;
           color: #0f172a;
-          line-height: 1.5;
+          background: #f8fafc;
+          transition: all 0.2s ease;
           outline: none;
-          transition: all 0.18s ease;
+          resize: vertical;
         }
 
         .reason-textarea:focus {
           border-color: #2563eb;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+          background: #ffffff;
+          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
         }
 
         .reason-footer-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          font-size: 0.76rem;
+          font-size: 0.78rem;
         }
 
         .char-req {
           color: #64748b;
         }
 
+        .char-count {
+          font-weight: 700;
+          font-family: var(--font-sans);
+        }
+
         .char-invalid {
           color: #dc2626;
-          font-weight: 600;
         }
 
         .char-valid {
           color: #059669;
-          font-weight: 600;
         }
 
         .btn-submit-decision {
-          width: 100%;
-          background: linear-gradient(135deg, #0b1f3a 0%, #163660 100%);
+          background: linear-gradient(135deg, #0b1f3a 0%, #1e3a8a 100%);
           color: #ffffff;
-          border: none;
-          border-radius: 10px;
-          padding: 0.95rem;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 12px;
+          padding: 0.95rem 1.5rem;
           font-size: 1rem;
-          font-weight: 700;
+          font-weight: 800;
           cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 16px rgba(11, 31, 58, 0.25);
           font-family: var(--font-devanagari);
-          transition: all 0.18s ease;
-          box-shadow: 0 4px 12px rgba(11, 31, 58, 0.2);
         }
 
-        .btn-submit-decision:hover:not(:disabled) {
-          background: linear-gradient(135deg, #102a4e 0%, #1e4577 100%);
-          transform: translateY(-1.5px);
-          box-shadow: 0 6px 16px rgba(11, 31, 58, 0.28);
-        }
-
-        .btn-submit-decision:disabled {
-          opacity: 0.65;
-          cursor: not-allowed;
+        .btn-submit-decision:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(11, 31, 58, 0.35);
+          background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
         }
 
         /* Audit Trail Card */
         .audit-trail-card {
-          padding: 1.5rem;
+          padding: 1.75rem;
+          border-radius: 20px;
         }
 
         .audit-count-badge {
           background: #f1f5f9;
-          color: #475569;
+          border: 1px solid #cbd5e1;
+          color: #0b1f3a;
+          padding: 0.25rem 0.75rem;
           border-radius: 999px;
-          padding: 0.2rem 0.65rem;
-          font-size: 0.76rem;
-          font-weight: 600;
+          font-size: 0.78rem;
+          font-weight: 700;
         }
 
         .empty-audit-box {
-          padding: 2rem;
           text-align: center;
+          padding: 2.5rem 1.5rem;
           color: #64748b;
           font-size: 0.88rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.65rem;
+        }
+
+        .empty-audit-icon {
+          font-size: 2.2rem;
+          opacity: 0.6;
         }
 
         .audit-timeline {
           display: flex;
           flex-direction: column;
-          gap: 0.85rem;
+          gap: 1.15rem;
         }
 
         .timeline-entry {
-          border-radius: 10px;
-          padding: 0.9rem 1.15rem;
-          border: 1px solid #e2e8f0;
-          border-left-width: 4px;
+          border-radius: 12px;
+          padding: 1.15rem;
+          border: 1.5px solid #e2e8f0;
+          background: #f8fafc;
         }
 
         .entry-approved {
-          border-left-color: #059669;
+          border-left: 4px solid #10b981;
           background: #f0fdf4;
         }
 
         .entry-rejected {
-          border-left-color: #dc2626;
+          border-left: 4px solid #ef4444;
           background: #fef2f2;
         }
 
         .entry-returned {
-          border-left-color: #d97706;
+          border-left: 4px solid #f59e0b;
           background: #fffbeb;
         }
 
@@ -1590,46 +1946,50 @@ export default function ApplicationDetailClient({
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 0.5rem;
-          margin-bottom: 0.35rem;
+          gap: 0.65rem;
+          margin-bottom: 0.65rem;
+        }
+
+        .officer-meta {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
         }
 
         .officer-name {
-          font-weight: 700;
-          font-size: 0.9rem;
+          font-weight: 800;
+          font-size: 0.95rem;
           color: #0b1f3a;
         }
 
         .officer-desig {
           font-size: 0.78rem;
           color: #64748b;
-          margin-left: 0.35rem;
         }
 
         .entry-badges {
           display: flex;
           align-items: center;
-          gap: 0.45rem;
-          flex-wrap: wrap;
+          gap: 0.5rem;
         }
 
         .badge-override {
           background: #fef3c7;
-          color: #92400e;
-          border: 1px solid #fcd34d;
+          color: #b45309;
+          border: 1px solid #fde68a;
+          border-radius: 6px;
+          padding: 0.15rem 0.5rem;
           font-size: 0.72rem;
           font-weight: 700;
-          padding: 0.15rem 0.5rem;
-          border-radius: 4px;
         }
 
         .badge-action {
+          background: #0b1f3a;
+          color: white;
+          padding: 0.2rem 0.65rem;
+          border-radius: 6px;
+          font-size: 0.76rem;
           font-weight: 700;
-          font-size: 0.78rem;
-          padding: 0.15rem 0.5rem;
-          border-radius: 4px;
-          background: #ffffff;
-          border: 1px solid #cbd5e1;
         }
 
         .entry-time {
@@ -1639,73 +1999,81 @@ export default function ApplicationDetailClient({
         }
 
         .entry-reason {
-          font-size: 0.85rem;
-          color: #1e293b;
-          line-height: 1.4;
+          font-size: 0.86rem;
+          color: #334155;
+          line-height: 1.5;
         }
 
-        /* Modal */
+        /* Modal Backdrop */
         .modal-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(7, 21, 43, 0.65);
-          backdrop-filter: blur(6px);
+          background: rgba(7, 21, 43, 0.6);
+          backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 9999;
-          padding: 1.5rem;
+          z-index: 1000;
+          padding: 1rem;
         }
 
         .modal-card {
-          background: #ffffff;
-          max-width: 520px;
           width: 100%;
+          max-width: 520px;
+          background: white;
+          border-radius: 20px;
           padding: 2rem;
-          border-radius: 18px;
           box-shadow: var(--shadow-modal);
           display: flex;
           flex-direction: column;
-          gap: 1.35rem;
+          gap: 1.5rem;
         }
 
         .modal-header {
           display: flex;
           align-items: flex-start;
-          gap: 0.85rem;
+          gap: 1rem;
         }
 
         .modal-icon-wrap {
           font-size: 1.8rem;
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          background: #fef3c7;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
         }
 
         .modal-title {
-          font-size: 1.25rem;
-          font-weight: 700;
+          font-size: 1.15rem;
+          font-weight: 800;
           color: #0b1f3a;
         }
 
         .modal-sub {
-          font-size: 0.85rem;
+          font-size: 0.82rem;
           color: #64748b;
-          margin-top: 0.2rem;
+          margin-top: 0.25rem;
         }
 
         .modal-summary-box {
           background: #f8fafc;
           border: 1px solid #e2e8f0;
           border-radius: 12px;
-          padding: 1rem 1.15rem;
+          padding: 1.15rem;
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.65rem;
         }
 
         .summary-line {
           display: flex;
-          align-items: baseline;
-          gap: 0.5rem;
-          font-size: 0.86rem;
+          align-items: flex-start;
+          gap: 0.75rem;
+          font-size: 0.88rem;
         }
 
         .sum-label {
@@ -1715,33 +2083,33 @@ export default function ApplicationDetailClient({
         }
 
         .sum-val {
-          color: #0b1f3a;
+          color: #0f172a;
+          font-weight: 600;
         }
 
-        .modal-actions-row {
+        .modal-actions {
           display: flex;
-          align-items: center;
+          gap: 1rem;
           justify-content: flex-end;
-          gap: 0.85rem;
         }
 
         .btn-modal-cancel {
-          background: #ffffff;
-          border: 1.5px solid #cbd5e1;
+          background: #f1f5f9;
+          border: 1px solid #cbd5e1;
           color: #475569;
-          border-radius: 8px;
-          padding: 0.55rem 1.15rem;
+          padding: 0.65rem 1.25rem;
+          border-radius: 10px;
           font-size: 0.88rem;
-          font-weight: 600;
+          font-weight: 700;
           cursor: pointer;
         }
 
         .btn-modal-confirm {
           background: #0b1f3a;
-          color: #ffffff;
+          color: white;
           border: none;
-          border-radius: 8px;
-          padding: 0.55rem 1.35rem;
+          padding: 0.65rem 1.35rem;
+          border-radius: 10px;
           font-size: 0.88rem;
           font-weight: 700;
           cursor: pointer;
@@ -1749,12 +2117,12 @@ export default function ApplicationDetailClient({
 
         .alert-box {
           border-radius: 10px;
-          padding: 0.85rem 1rem;
+          padding: 0.95rem 1.15rem;
           font-size: 0.88rem;
           font-weight: 600;
           display: flex;
           align-items: center;
-          gap: 0.6rem;
+          gap: 0.65rem;
         }
 
         .alert-success {
@@ -1772,25 +2140,25 @@ export default function ApplicationDetailClient({
         .already-decided-box {
           background: #f8fafc;
           border: 1.5px solid #e2e8f0;
-          border-radius: 12px;
-          padding: 1.25rem;
+          border-radius: 14px;
+          padding: 1.35rem;
         }
 
         .decided-badge-row {
           display: flex;
           align-items: center;
-          gap: 0.6rem;
-          margin-bottom: 0.5rem;
+          gap: 0.65rem;
+          margin-bottom: 0.65rem;
         }
 
         .decided-title {
-          font-weight: 700;
+          font-weight: 800;
           font-size: 0.95rem;
           color: #0b1f3a;
         }
 
         .decided-sub {
-          font-size: 0.82rem;
+          font-size: 0.84rem;
           color: #64748b;
           line-height: 1.5;
         }
@@ -1819,15 +2187,15 @@ function InfoField({
   note?: string;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-      <div style={{ fontSize: "0.76rem", color: "#64748b", fontWeight: 600 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+      <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>
         {label}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
         <span
           style={{
-            fontWeight: 700,
-            fontSize: "0.95rem",
+            fontWeight: 800,
+            fontSize: "0.98rem",
             color:
               highlight === "red"
                 ? "#dc2626"
@@ -1841,10 +2209,10 @@ function InfoField({
         {badge && (
           <span
             style={{
-              fontSize: "0.7rem",
+              fontSize: "0.72rem",
               fontWeight: 700,
-              padding: "0.15rem 0.5rem",
-              borderRadius: "4px",
+              padding: "0.15rem 0.55rem",
+              borderRadius: "6px",
               background: highlight === "red" ? "#fee2e2" : "#ecfdf5",
               color: highlight === "red" ? "#b91c1c" : "#047857",
               border: `1px solid ${highlight === "red" ? "#fca5a5" : "#a7f3d0"}`,
@@ -1857,9 +2225,9 @@ function InfoField({
       {note && (
         <div
           style={{
-            fontSize: "0.72rem",
+            fontSize: "0.74rem",
             color: highlight === "red" ? "#b91c1c" : "#64748b",
-            lineHeight: 1.3,
+            lineHeight: 1.35,
           }}
         >
           {note}
