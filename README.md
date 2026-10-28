@@ -3,6 +3,8 @@
 
 A fast, purpose-built verification portal designed for Block and Tehsil-level social welfare officers in Haryana, India to review Old Age Pension (*Vridha Pension* / *वृद्धावस्था सम्मान भत्ता*) applications. The entire user interface is in **Hindi (Devanagari)**.
 
+**Live demo:** https://kenpath-intern-assignment.vercel.app — login `officer@demo.gov.in` / `demo1234`
+
 ---
 
 ## 1. Problem & Context

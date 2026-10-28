@@ -22,7 +22,13 @@ export const intakeSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .refine((v) => {
         const d = new Date(v);
-        return !isNaN(d.getTime()) && d < new Date() && d.getFullYear() >= 1900;
+        // Round-trip check rejects impossible dates like 1955-02-31 (JS would roll them over)
+        return (
+          !isNaN(d.getTime()) &&
+          d.toISOString().slice(0, 10) === v &&
+          d < new Date() &&
+          d.getFullYear() >= 1900
+        );
       }),
     village: z.string().trim().min(2).max(100),
     tehsil: z.string().trim().min(2).max(100),
