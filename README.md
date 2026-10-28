@@ -1,19 +1,34 @@
 # वृद्धा पेंशन समीक्षा प्रणाली (हरियाणा)
 **Old Age Pension Review Tool — Haryana**
 
-A fast, purpose-built verification portal designed for Block and Tehsil-level social welfare officers in Haryana, India to review Old Age Pension (*Vridha Pension* / *वृद्धावस्था सम्मान भत्ता*) applications. The entire user interface is in **Hindi (Devanagari)**.
+A fast, purpose-built verification portal designed for Block and Tehsil-level social welfare officers in Haryana, India to review Old Age Pension (*Vridha Pension* / *वृद्धावस्था सम्मान भत्ता*) applications. The entire user interface is in **Hindi (Devanagari)** with bilingual accessibility support.
 
-**Live demo:** https://kenpath-intern-assignment.vercel.app — login `officer@demo.gov.in` / `demo1234`
+| Resource | Details |
+| :--- | :--- |
+| **🌐 Live Application** | [https://kenpath-intern-assignment.vercel.app](https://kenpath-intern-assignment.vercel.app) |
+| **🔑 Demo Credentials** | Email: `officer@demo.gov.in` &nbsp;\|&nbsp; Password: `demo1234` |
+| **📁 GitHub Repository** | [https://github.com/Yash990-bit/kenpath_intern_assignment](https://github.com/Yash990-bit/kenpath_intern_assignment) |
 
 ---
 
-## 1. Problem & Context
+## 1. Problem, Stakeholders & What the App Does
 
-In Haryana, citizens apply for the Old Age Pension either online or at local citizen centers (*Atal Seva Kendra* / *Saral Haryana*). The applications arrive at Tehsil and Block offices for scrutiny by welfare officers before benefits are sanctioned.
+### 1.1 The Problem
+In Haryana, citizens apply for the Old Age Pension either online or at local citizen service centers (*Atal Seva Kendra* / *Saral Haryana*). Applications arrive at Tehsil and Block social welfare offices for scrutiny by welfare officers before pension benefits can be sanctioned.
 
-Frontline officers typically navigate slow, fragmented legacy portals. They must manually cross-examine age certificates, income affidavits, bank account details, and Aadhaar identifiers, resulting in application backlogs, SLA breaches, and delays for elderly beneficiaries.
+Frontline officers typically navigate slow, fragmented legacy portals. They must manually cross-examine age certificates, income affidavits, bank passbooks, and Aadhaar identifiers. This manual cross-referencing leads to massive application backlogs, SLA breaches (applications pending $\ge 30$ days), and prolonged delays for elderly beneficiaries who rely on the monthly allowance.
 
-This application provides officers with a streamlined triage dashboard, deterministic statutory validation, AI-assisted summaries with cited discrepancies, mandatory reason recording, and an append-only audit trail.
+### 1.2 Who It Affects
+1. **Frontline Social Welfare Officers (Tehsil & Block level):** Burdened by repetitive manual verification, slow legacy tools, high caseloads, and strict statutory liability for incorrect approvals.
+2. **Elderly Citizen Beneficiaries:** Senior citizens (aged $\ge 60$ with household income $\le ₹2,00,000$) whose basic monthly subsistence pension is delayed when their applications sit unresolved in the backlog.
+3. **Department Supervisors & Auditing Authorities:** Need transparency, verifiable SLA compliance, and an tamper-proof audit trail of why an application was approved, rejected, or returned.
+
+### 1.3 What the App Does
+- **Triage Dashboard:** Urgency-ordered queue automatically ranking SLA breached cases ($\ge 30$ days pending) first, followed by High Priority cases, then oldest pending applications.
+- **Deterministic Statutory Validation First:** Age ($\ge 60$) and income ($\le ₹2,00,000$) statutory criteria are evaluated deterministically in code. Hard statutory violations strictly lock the decision to `REJECT`, preventing LLM hallucination.
+- **AI-Assisted Case Synthesis:** Uses Groq / Google Gemini to generate 2-3 line Hindi summaries, cross-reference documents, check for expired certificates, and flag bank account name discrepancies using edit-distance matching.
+- **Officer-in-the-Loop Authority:** AI only provides suggestions and draft justification text; the appointed officer must make the final decision and record a mandatory explanation ($\ge 10$ characters).
+- **Intake & Audit Trail:** Officer-side intake form for walk-in counter applications with live statutory preview, and an atomic, append-only audit trail logging every registration and decision with CSV export for supervisory oversight.
 
 ---
 
