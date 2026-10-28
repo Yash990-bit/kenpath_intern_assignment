@@ -1,4 +1,11 @@
+"use client";
+
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+
 export default function Loading() {
+  const { language } = useLanguage();
+  const isEn = language === "en";
+
   return (
     <div
       style={{
@@ -8,7 +15,7 @@ export default function Loading() {
         justifyContent: "center",
         minHeight: "50vh",
         gap: "1rem",
-        fontFamily: "var(--font-devanagari)",
+        fontFamily: isEn ? "var(--font-sans)" : "var(--font-devanagari)",
         color: "var(--clr-navy)",
       }}
     >
@@ -28,10 +35,10 @@ export default function Loading() {
         }
       `}</style>
       <div style={{ fontSize: "1.1rem", fontWeight: 600 }}>
-        डेटा लोड हो रहा है, कृपया प्रतीक्षा करें...
+        {isEn ? "Loading records, please wait..." : "डेटा लोड हो रहा है, कृपया प्रतीक्षा करें..."}
       </div>
       <div style={{ fontSize: "0.82rem", color: "var(--clr-text-secondary)" }}>
-        हरियाणा वृद्धावस्था सम्मान भत्ता समीक्षा पोर्टल
+        {isEn ? "Haryana Old Age Pension Review Portal" : "हरियाणा वृद्धावस्था सम्मान भत्ता समीक्षा पोर्टल"}
       </div>
     </div>
   );

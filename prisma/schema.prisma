@@ -67,7 +67,7 @@ model AuditLog {
   applicationId String
   officerId     String
 
-  action        String   // "स्वीकृत" | "अस्वीकृत" | "वापस" | "देखा"
+  action        String   // "स्वीकृत" | "अस्वीकृत" | "वापस" | "देखा" | "पंजीकृत" (intake)
   aiSuggested   String?  // AI suggestion at the time ("APPROVE" | "REJECT" | "RETURN")
   finalDecision String?  // Officer's decision ("APPROVE" | "REJECT" | "RETURN")
   overridden    Boolean  @default(false) // true when finalDecision != aiSuggested

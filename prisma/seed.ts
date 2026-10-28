@@ -15,7 +15,7 @@ const prisma = new PrismaClient();
 async function main() {
   // ── Demo officer ────────────────────────────────────────────────────────────
   const passwordHash = await bcrypt.hash("demo1234", 12);
-  await prisma.officer.upsert({
+  const officer = await prisma.officer.upsert({
     where: { email: "officer@demo.gov.in" },
     update: {},
     create: {
@@ -549,11 +549,53 @@ async function main() {
   await prisma.auditLog.deleteMany();
   await prisma.application.deleteMany();
 
+  const createdByName = new Map<string, string>();
   for (const data of apps) {
-    await prisma.application.create({ data: data as never });
+    const created = await prisma.application.create({ data: data as never });
+    createdByName.set(created.applicantName, created.id);
   }
 
   console.log(`✅ Seeded ${apps.length} applications with dynamic relative dates`);
+
+  // ── Audit trail for the two pre-processed cases ─────────────────────────────
+  // Every non-PENDING application must have the decision that produced it on record.
+  const processedDecisions = [
+    {
+      applicantName: "घनश्याम दास",
+      action: "स्वीकृत",
+      decision: "APPROVE",
+      reason:
+        "सभी 6 अनिवार्य दस्तावेज़ संलग्न एवं आयु (77 वर्ष) व वार्षिक आय (₹44,000) वैधानिक मानकों के अनुरूप सत्यापित हैं।",
+      decidedAt: daysAgo(20),
+    },
+    {
+      applicantName: "मीना कुमारी",
+      action: "अस्वीकृत",
+      decision: "REJECT",
+      reason:
+        "आवेदक की आयु 51 वर्ष है, जो 60 वर्ष की न्यूनतम आयु से कम है। हरियाणा वृद्धावस्था सम्मान भत्ता नियम 1991 के तहत अपात्र।",
+      decidedAt: daysAgo(24),
+    },
+  ];
+
+  for (const d of processedDecisions) {
+    const applicationId = createdByName.get(d.applicantName);
+    if (!applicationId) throw new Error(`Seed: processed case not found: ${d.applicantName}`);
+    await prisma.auditLog.create({
+      data: {
+        applicationId,
+        officerId: officer.id,
+        action: d.action,
+        aiSuggested: d.decision,
+        finalDecision: d.decision,
+        overridden: false,
+        reason: d.reason,
+        createdAt: d.decidedAt,
+      },
+    });
+  }
+
+  console.log(`✅ Seeded ${processedDecisions.length} audit log entries for processed cases`);
 }
 
 main()

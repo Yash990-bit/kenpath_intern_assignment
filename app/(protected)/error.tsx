@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import Icon from "@/components/Icon";
 
 export default function ErrorPage({
   error,
@@ -10,6 +12,9 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { language } = useLanguage();
+  const isEn = language === "en";
+
   useEffect(() => {
     console.error("Protected page error:", error);
   }, [error]);
@@ -24,16 +29,18 @@ export default function ErrorPage({
         minHeight: "50vh",
         gap: "1rem",
         textAlign: "center",
-        fontFamily: "var(--font-devanagari)",
+        fontFamily: isEn ? "var(--font-sans)" : "var(--font-devanagari)",
         padding: "2rem",
       }}
     >
-      <div style={{ fontSize: "3rem" }}>⚠️</div>
+      <div style={{ color: "var(--clr-red)", display: "flex", justifyContent: "center" }}><Icon name="alertTriangle" size={44} strokeWidth={1.6} /></div>
       <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--clr-red)" }}>
-        डेटा लोड करने में समस्या आई
+        {isEn ? "Error Loading Application Data" : "डेटा लोड करने में समस्या आई"}
       </h2>
       <p style={{ color: "var(--clr-text-secondary)", fontSize: "0.9rem", maxWidth: "480px" }}>
-        सर्वर से संपर्क करने में अस्थायी बाधा उत्पन्न हुई है। कृपया पुनः प्रयास करें अथवा डैशबोर्ड पर जाएँ।
+        {isEn
+          ? "A temporary disruption occurred while communicating with the server. Please try again or return to the dashboard."
+          : "सर्वर से संपर्क करने में अस्थायी बाधा उत्पन्न हुई है। कृपया पुनः प्रयास करें अथवा डैशबोर्ड पर जाएँ।"}
       </p>
 
       <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
@@ -48,10 +55,10 @@ export default function ErrorPage({
             fontSize: "0.9rem",
             fontWeight: 600,
             cursor: "pointer",
-            fontFamily: "var(--font-devanagari)",
+            fontFamily: isEn ? "var(--font-sans)" : "var(--font-devanagari)",
           }}
         >
-          🔄 पुनः प्रयास करें
+          <Icon name="refresh" size={15} /> {isEn ? "Try Again" : "पुनः प्रयास करें"}
         </button>
 
         <Link
@@ -69,7 +76,7 @@ export default function ErrorPage({
             alignItems: "center",
           }}
         >
-          डैशबोर्ड पर जाएँ
+          {isEn ? "Go to Dashboard" : "डैशबोर्ड पर जाएँ"}
         </Link>
       </div>
     </div>

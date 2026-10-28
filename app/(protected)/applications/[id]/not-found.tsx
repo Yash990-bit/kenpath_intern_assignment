@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Icon from "@/components/Icon";
 
 export default function ApplicationNotFound() {
   return (
@@ -15,7 +16,7 @@ export default function ApplicationNotFound() {
         padding: "2rem",
       }}
     >
-      <div style={{ fontSize: "3rem" }}>🔍</div>
+      <div style={{ color: "var(--clr-text-muted)", display: "flex", justifyContent: "center" }}><Icon name="search" size={44} strokeWidth={1.6} /></div>
       <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--clr-navy)" }}>
         आवेदन नहीं मिला
       </h2>

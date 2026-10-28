@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { Application, AuditLog } from "@prisma/client";
 import { AIAnalysisResult, calculateAge, calculateDaysPending } from "@/lib/ai";
@@ -11,6 +11,8 @@ import {
   isSlaBreached,
 } from "@/lib/eligibility";
 import { submitDecision, DecisionType } from "@/app/actions/application";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import Icon from "@/components/Icon";
 
 interface AuditLogWithOfficer extends AuditLog {
   officer: {
@@ -23,35 +25,8 @@ interface ApplicationWithAudit extends Application {
   auditLogs: AuditLogWithOfficer[];
 }
 
-const PRESET_REASONS: Record<DecisionType, string[]> = {
-  APPROVE: [
-    "सभी 6 अनिवार्य दस्तावेज़ संलग्न एवं आयु (60+ वर्ष) व वार्षिक आय वैधानिक मानकों के अनुरूप सत्यापित हैं।",
-    "बैंक खाता आवेदक के नाम पर सत्यापित पाया गया। डीबीटी अंतरण हेतु पेंशन स्वीकृति प्रदान की जाती है।",
-  ],
-  REJECT: [
-    "आवेदक की आयु 60 वर्ष से कम होने के कारण हरियाणा वृद्धावस्था सम्मान भत्ता नियम 1991 के तहत अपात्र।",
-    "वार्षिक आय ₹2,00,000 की वैधानिक सीमा से अधिक होने के कारण आवेदन निरस्त किया जाता है।",
-  ],
-  RETURN: [
-    "अनिवार्य दस्तावेज़ (आय प्रमाण पत्र / बैंक पासबुक) संलग्न करने हेतु आवेदन वापस लौटाया जाता है।",
-    "बैंक खाता धारक का नाम आवेदक के नाम से भिन्न है, सही खाता विवरण संलग्न करने हेतु वापस लौटाएं।",
-  ],
-};
-
-const AVATAR_GRADIENTS = [
-  "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-  "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-  "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-  "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-  "linear-gradient(135deg, #ec4899 0%, #be185d 100%)",
-  "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
-];
-
-function getAvatarGradient(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i);
-  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
-}
+// One restrained navy tone for every applicant initial (no decorative rainbow)
+const AVATAR_BACKGROUND = "linear-gradient(135deg, #1e3a8a 0%, #0b1f3a 100%)";
 
 export default function ApplicationDetailClient({
   application: initialApp,
@@ -62,6 +37,7 @@ export default function ApplicationDetailClient({
   initialAnalysis: AIAnalysisResult;
   officerName: string;
 }) {
+  const { language, t, interpolate } = useLanguage();
   const [app, setApp] = useState<ApplicationWithAudit>(initialApp);
   const [analysis, setAnalysis] = useState<AIAnalysisResult>(initialAnalysis);
   const [isRefreshingAi, setIsRefreshingAi] = useState(false);
@@ -75,6 +51,8 @@ export default function ApplicationDetailClient({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const locale = language === "en" ? "en-IN" : "hi-IN";
+
   const age = calculateAge(new Date(app.dob));
   const daysPending = calculateDaysPending(new Date(app.submittedAt));
   const isSlaBreach = isSlaBreached(new Date(app.submittedAt), app.status);
@@ -82,6 +60,29 @@ export default function ApplicationDetailClient({
   const isIncomeHigh = app.annualIncome > MAX_ANNUAL_INCOME_INR;
   const isBankHolderMismatch =
     app.applicantName.trim().toLowerCase() !== app.bankAccountHolder.trim().toLowerCase();
+
+  // Dynamic presets based on active language
+  const presetReasons: Record<DecisionType, string[]> = t.presets;
+
+  // Re-fetch AI analysis when language changes to ensure summary, discrepancies & reasons match active language
+  useEffect(() => {
+    let isMounted = true;
+    async function loadLocalizedAnalysis() {
+      try {
+        const res = await fetch(`/api/applications/${app.id}/ai-analysis?lang=${language}`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          setAnalysis(data);
+        }
+      } catch (err) {
+        console.error("AI language refresh error:", err);
+      }
+    }
+    loadLocalizedAnalysis();
+    return () => {
+      isMounted = false;
+    };
+  }, [language, app.id]);
 
   // Copy ID helper
   const handleCopyId = () => {
@@ -94,7 +95,7 @@ export default function ApplicationDetailClient({
   const handleRefreshAi = async () => {
     setIsRefreshingAi(true);
     try {
-      const res = await fetch(`/api/applications/${app.id}/ai-analysis?force=true`);
+      const res = await fetch(`/api/applications/${app.id}/ai-analysis?force=true&lang=${language}`);
       if (res.ok) {
         const data = await res.json();
         setAnalysis(data);
@@ -120,17 +121,17 @@ export default function ApplicationDetailClient({
     setSuccessMsg(null);
 
     if (app.status !== "PENDING") {
-      setFormError("इस आवेदन पर पहले ही निर्णय लिया जा चुका है। दोहरा निर्णय दर्ज नहीं किया जा सकता।");
+      setFormError(t.detail.errorAlreadyDecided);
       return;
     }
 
     if (!selectedDecision) {
-      setFormError("कृपया पहले निर्णय (स्वीकृत / अस्वीकृत / वापस) का चयन करें।");
+      setFormError(t.detail.errorSelectDecisionFirst);
       return;
     }
 
     if (!reason.trim() || reason.trim().length < 10) {
-      setFormError("निर्णय हेतु स्पष्ट कारण दर्ज करना अनिवार्य है (कम से कम 10 अक्षर आवश्यक हैं)।");
+      setFormError(t.detail.errorReasonMinChars);
       return;
     }
 
@@ -151,12 +152,12 @@ export default function ApplicationDetailClient({
       });
 
       if (!res.success) {
-        setFormError(res.error || "निर्णय सहेजने में विफल।");
+        setFormError(res.error || t.detail.saveDecisionFailed);
       } else {
         const actionLabels: Record<DecisionType, string> = {
-          APPROVE: "स्वीकृत",
-          REJECT: "अस्वीकृत",
-          RETURN: "वापस",
+          APPROVE: t.common.statusApproved,
+          REJECT: t.common.statusRejected,
+          RETURN: t.common.statusReturned,
         };
         const statusMap = {
           APPROVE: "APPROVED",
@@ -183,7 +184,7 @@ export default function ApplicationDetailClient({
               createdAt: new Date(),
               officer: {
                 name: officerName,
-                designation: "तहसीलदार",
+                designation: language === "en" ? "Tehsildar" : "तहसीलदार",
               },
             },
             ...prev.auditLogs,
@@ -191,7 +192,7 @@ export default function ApplicationDetailClient({
         }));
 
         setSuccessMsg(
-          `निर्णय सफलतापूर्वक दर्ज किया गया: आवेदन ${actionLabels[selectedDecision]} कर दिया गया है।`
+          interpolate(t.detail.successDecisionSaved, { action: actionLabels[selectedDecision] })
         );
         setReason("");
         setSelectedDecision(null);
@@ -203,34 +204,42 @@ export default function ApplicationDetailClient({
     string,
     { label: string; bg: string; text: string; border: string; dot: string }
   > = {
-    PENDING: { label: "लंबित", bg: "#fff7ed", text: "#c2410c", border: "#fed7aa", dot: "#f97316" },
-    APPROVED: { label: "स्वीकृत", bg: "#ecfdf5", text: "#047857", border: "#a7f3d0", dot: "#10b981" },
-    REJECTED: { label: "अस्वीकृत", bg: "#fef2f2", text: "#b91c1c", border: "#fecaca", dot: "#ef4444" },
-    RETURNED: { label: "वापस", bg: "#fffbeb", text: "#b45309", border: "#fde68a", dot: "#f59e0b" },
+    PENDING: { label: t.common.statusPending, bg: "#fff7ed", text: "#c2410c", border: "#fed7aa", dot: "#f97316" },
+    APPROVED: { label: t.common.statusApproved, bg: "#ecfdf5", text: "#047857", border: "#a7f3d0", dot: "#10b981" },
+    REJECTED: { label: t.common.statusRejected, bg: "#fef2f2", text: "#b91c1c", border: "#fecaca", dot: "#ef4444" },
+    RETURNED: { label: t.common.statusReturned, bg: "#fffbeb", text: "#b45309", border: "#fde68a", dot: "#f59e0b" },
   };
 
   const statusStyle = statusBadges[app.status] || statusBadges.PENDING;
   const isOverriddenChoice = selectedDecision && selectedDecision !== analysis.suggestedDecision;
 
+  const getAuditActionLabel = (action: string) => {
+    if (action === "स्वीकृत" || action === "APPROVED") return t.common.statusApproved;
+    if (action === "अस्वीकृत" || action === "REJECTED") return t.common.statusRejected;
+    if (action === "वापस" || action === "RETURNED") return t.common.statusReturned;
+    if (action === "पंजीकृत") return t.detail.auditActionRegistered;
+    return action;
+  };
+
   return (
-    <div style={{ fontFamily: "var(--font-devanagari)", paddingBottom: "4rem" }}>
+    <div style={{ fontFamily: language === "hi" ? "var(--font-devanagari), var(--font-sans)" : "var(--font-sans), var(--font-devanagari)", paddingBottom: "4rem" }}>
       {/* ─── Top Sticky Command Bar ────────────────────────────────────────── */}
       <div className="command-bar executive-card glass-panel">
         <div className="command-left">
           <Link href="/dashboard" className="btn-back">
             <span className="btn-back-arrow">←</span>
-            <span>डैशबोर्ड</span>
+            <span>{t.detail.backToDashboard}</span>
           </Link>
 
           <button
             type="button"
             onClick={handleCopyId}
             className="applicant-id-pill"
-            title="आवेदन आईडी कॉपी करें"
+            title={t.detail.copyIdTooltip}
           >
-            <span className="id-label">आवेदन सं:</span>
+            <span className="id-label">{t.detail.appNoPrefix}</span>
             <code className="id-code">{app.id}</code>
-            <span className="copy-icon">{copiedId ? "✓ कॉपी हुआ" : "📋"}</span>
+            <span className="copy-icon">{copiedId ? t.detail.copiedSuccess : <Icon name="copy" size={14} label={t.detail.copiedSuccess} />}</span>
           </button>
 
           <span
@@ -247,29 +256,29 @@ export default function ApplicationDetailClient({
 
           {app.priority === "HIGH" && (
             <span className="badge-high-priority">
-              ⚠️ उच्च प्राथमिकता
+              <Icon name="flag" size={13} /> {t.common.priorityHigh}
             </span>
           )}
 
           {isSlaBreach && (
             <span className="badge-sla-breached">
               <span className="sla-dot pulse-dot"></span>
-              🚨 SLA अतिदेय ({daysPending} दिन)
+              <Icon name="alertOctagon" size={13} /> {interpolate(t.detail.slaOverdue, { days: daysPending })}
             </span>
           )}
         </div>
 
         <div className="command-right">
           <span className="sub-date">
-            📅 आवेदन तिथि:{" "}
+            <Icon name="calendar" size={14} /> {t.detail.applicationDate}:{" "}
             <strong>
-              {new Date(app.submittedAt).toLocaleDateString("hi-IN", {
+              {new Date(app.submittedAt).toLocaleDateString(locale, {
                 day: "2-digit",
                 month: "short",
                 year: "numeric",
               })}
             </strong>{" "}
-            ({daysPending} दिन पूर्व)
+            ({interpolate(t.detail.daysAgo, { days: daysPending })})
           </span>
         </div>
       </div>
@@ -278,7 +287,7 @@ export default function ApplicationDetailClient({
       <div className="applicant-hero-card executive-card">
         <div
           className="hero-avatar"
-          style={{ background: getAvatarGradient(app.applicantName) }}
+          style={{ background: AVATAR_BACKGROUND }}
         >
           {app.applicantName[0]}
         </div>
@@ -286,32 +295,32 @@ export default function ApplicationDetailClient({
           <div className="hero-title-row">
             <h1 className="hero-applicant-name">
               {app.applicantName}
-              <span className="verified-badge" title="पंजीकृत आवेदक">✓</span>
+              <span className="verified-badge" title={t.detail.registeredApplicant}>✓</span>
             </h1>
             <span className="hero-sub-relation">
-              आत्मज/पत्नी: <strong>{app.fatherHusbandName}</strong>
+              {t.detail.relationPrefix}: <strong>{app.fatherHusbandName}</strong>
             </span>
           </div>
 
           <div className="hero-tags-row">
-            <span className="tag-item">📍 {app.village}, तहसील {app.tehsil}, जिला {app.district}</span>
-            <span className="tag-item">🆔 आधार: {app.aadhaarMasked}</span>
-            <span className="tag-item">⏱️ प्रतीक्षा काल: {daysPending} दिन</span>
+            <span className="tag-item"><Icon name="mapPin" size={14} /> {interpolate(t.detail.locationFormat, { village: app.village, tehsil: app.tehsil, district: app.district })}</span>
+            <span className="tag-item"><Icon name="idCard" size={14} /> {t.detail.aadhaarLabel}: {app.aadhaarMasked}</span>
+            <span className="tag-item"><Icon name="clock" size={14} /> {t.detail.waitingPeriod}: {interpolate(t.detail.daysCount, { days: daysPending })}</span>
           </div>
 
           {/* Quick Eligibility Snapshot Pills */}
           <div className="hero-snapshot-row">
             <span className={`snapshot-pill ${age >= 60 ? "snap-pass" : "snap-fail"}`}>
-              {age >= 60 ? "✓ आयु पात्र" : "✕ आयु अपात्र"} ({age} वर्ष)
+              {age >= 60 ? t.detail.ageEligible : t.detail.ageIneligible} ({interpolate(t.detail.yearsAge, { age })})
             </span>
             <span className={`snapshot-pill ${app.annualIncome <= 200000 ? "snap-pass" : "snap-fail"}`}>
-              {app.annualIncome <= 200000 ? "✓ आय सीमा के अंतर्गत" : "✕ आय सीमा से अधिक"} (₹{app.annualIncome.toLocaleString("hi-IN")})
+              {app.annualIncome <= 200000 ? t.detail.incomeEligible : t.detail.incomeIneligible} (₹{app.annualIncome.toLocaleString(locale)})
             </span>
             <span className={`snapshot-pill ${!isBankHolderMismatch ? "snap-pass" : "snap-warn"}`}>
-              {!isBankHolderMismatch ? "✓ बैंक खाता सत्यापित" : "⚠️ बैंक खाता नाम भिन्न"}
+              {!isBankHolderMismatch ? t.detail.bankVerified : t.detail.bankNameMismatch}
             </span>
             <span className="snapshot-pill snap-info">
-              📂 {6 - analysis.missingDocuments.length}/6 दस्तावेज़ संलग्न
+              <Icon name="folder" size={13} /> {interpolate(t.detail.documentsAttached, { count: 6 - analysis.missingDocuments.length })}
             </span>
           </div>
         </div>
@@ -325,60 +334,60 @@ export default function ApplicationDetailClient({
           <div className="executive-card detail-card">
             <div className="card-header-styled">
               <div className="card-title-flex">
-                <span className="card-header-icon">👤</span>
+                <span className="card-header-icon"><Icon name="user" size={20} /></span>
                 <div>
-                  <h2 className="card-header-title">व्यक्तिगत एवं पात्रता विवरण</h2>
-                  <p className="card-header-sub">हरियाणा वृद्धावस्था पेंशन पात्रता नियम 1991</p>
+                  <h2 className="card-header-title">{t.detail.personalDossierTitle}</h2>
+                  <p className="card-header-sub">{t.detail.personalDossierSub}</p>
                 </div>
               </div>
             </div>
 
             <div className="fields-grid">
               <InfoField
-                label="आवेदक का पूरा नाम"
+                label={t.detail.applicantFullName}
                 value={app.applicantName}
               />
               <InfoField
-                label="पिता / पति का नाम"
+                label={t.detail.fatherHusbandName}
                 value={app.fatherHusbandName}
               />
 
               <InfoField
-                label="जन्म तिथि एवं आयु"
-                value={`${new Date(app.dob).toLocaleDateString("hi-IN")} (${age} वर्ष)`}
+                label={t.detail.dobAndAge}
+                value={`${new Date(app.dob).toLocaleDateString(locale)} (${interpolate(t.detail.yearsAge, { age })})`}
                 highlight={isUnderage ? "red" : "green"}
-                badge={isUnderage ? "अपात्र (<60 वर्ष)" : "पात्र (60+ वर्ष)"}
-                note={isUnderage ? "नियम: आवेदक की आयु कम से कम 60 वर्ष पूर्ण होनी चाहिए" : "वैधानिक न्यूनतम आयु 60 वर्ष पूरी है"}
+                badge={isUnderage ? t.detail.ineligibleAgeBadge : t.detail.eligibleAgeBadge}
+                note={isUnderage ? t.detail.ageRuleNoteFail : t.detail.ageRuleNotePass}
               />
 
               <InfoField
-                label="सत्यापित वार्षिक आय"
-                value={`₹${app.annualIncome.toLocaleString("hi-IN")} / वर्ष`}
+                label={t.detail.annualIncome}
+                value={`₹${app.annualIncome.toLocaleString(locale)} / ${language === "en" ? "year" : "वर्ष"}`}
                 highlight={isIncomeHigh ? "red" : "green"}
-                badge={isIncomeHigh ? "सीमा से अधिक" : "सीमा के अंतर्गत"}
-                note={isIncomeHigh ? "नियम: कुल वार्षिक आय ₹2,00,000 से अधिक न हो" : "वैधानिक सीमा ₹2,00,000 के भीतर"}
+                badge={isIncomeHigh ? t.detail.incomeAboveLimitBadge : t.detail.incomeWithinLimitBadge}
+                note={isIncomeHigh ? t.detail.incomeRuleNoteFail : t.detail.incomeRuleNotePass}
               />
 
               <InfoField
-                label="निवास स्थान (गाँव)"
+                label={t.detail.village}
                 value={app.village}
               />
               <InfoField
-                label="तहसील एवं ज़िला"
+                label={t.detail.tehsilAndDistrict}
                 value={`${app.tehsil}, ${app.district}`}
               />
 
               <InfoField
-                label="आधार संख्या (मास्क्ड)"
+                label={t.detail.aadhaarNo}
                 value={app.aadhaarMasked}
               />
               <InfoField
-                label="आवेदन जमा करने की तिथि"
-                value={`${new Date(app.submittedAt).toLocaleDateString("hi-IN", {
+                label={t.detail.submittedOn}
+                value={`${new Date(app.submittedAt).toLocaleDateString(locale, {
                   day: "2-digit",
                   month: "long",
                   year: "numeric",
-                })} (${daysPending} दिन पूर्व)`}
+                })} (${interpolate(t.detail.daysAgo, { days: daysPending })})`}
               />
             </div>
           </div>
@@ -387,10 +396,10 @@ export default function ApplicationDetailClient({
           <div className="executive-card detail-card">
             <div className="card-header-styled">
               <div className="card-title-flex">
-                <span className="card-header-icon">🏦</span>
+                <span className="card-header-icon"><Icon name="landmark" size={20} /></span>
                 <div>
-                  <h2 className="card-header-title">बैंक खाता एवं वित्तीय सत्यापन</h2>
-                  <p className="card-header-sub">डीबीटी (DBT) पेंशन अंतरण हेतु खाता मिलान</p>
+                  <h2 className="card-header-title">{t.detail.bankVerificationTitle}</h2>
+                  <p className="card-header-sub">{t.detail.bankVerificationSub}</p>
                 </div>
               </div>
             </div>
@@ -402,16 +411,16 @@ export default function ApplicationDetailClient({
               }`}
             >
               <div className="match-icon">
-                {isBankHolderMismatch ? "⚠️" : "✓"}
+                {isBankHolderMismatch ? <Icon name="alertTriangle" size={18} /> : <Icon name="check" size={18} strokeWidth={2.5} />}
               </div>
               <div>
                 <div className="match-title">
                   {isBankHolderMismatch
-                    ? "खाता धारक के नाम में भिन्नता (Name Mismatch Detected)"
-                    : "खाता धारक का नाम पूर्णतः मेल खाता है"}
+                    ? t.detail.bankMatchMismatchTitle
+                    : t.detail.bankMatchSuccessTitle}
                 </div>
                 <div className="match-desc">
-                  आवेदक नाम: <strong>{app.applicantName}</strong> ⟷ बैंक पासबुक:{" "}
+                  {t.detail.applicantNameLabel}: <strong>{app.applicantName}</strong> ⟷ {t.detail.bankPassbookNameLabel}:{" "}
                   <strong>{app.bankAccountHolder}</strong>
                 </div>
               </div>
@@ -419,21 +428,21 @@ export default function ApplicationDetailClient({
 
             <div className="fields-grid" style={{ marginTop: "1rem" }}>
               <InfoField
-                label="बैंक खाता धारक का नाम"
+                label={t.detail.bankAccountHolder}
                 value={app.bankAccountHolder}
                 highlight={isBankHolderMismatch ? "red" : undefined}
               />
               <InfoField
-                label="खाता संख्या (मास्क्ड)"
+                label={t.detail.bankAccountMasked}
                 value={app.bankAccountMasked}
               />
               <InfoField
-                label="बैंक IFSC कोड"
+                label={t.detail.bankIfsc}
                 value={app.bankIFSC}
               />
               <InfoField
-                label="डीबीटी (DBT) अंतरण पात्रता"
-                value={isBankHolderMismatch ? "सत्यापन अपेक्षित" : "सक्रिय एवं मान्य"}
+                label={t.detail.dbtEligibility}
+                value={isBankHolderMismatch ? t.detail.dbtVerificationPending : t.detail.dbtActiveValid}
                 highlight={isBankHolderMismatch ? "red" : "green"}
               />
             </div>
@@ -443,14 +452,14 @@ export default function ApplicationDetailClient({
           <div className="executive-card detail-card">
             <div className="card-header-styled">
               <div className="card-title-flex">
-                <span className="card-header-icon">📂</span>
+                <span className="card-header-icon"><Icon name="folder" size={20} /></span>
                 <div>
-                  <h2 className="card-header-title">अनिवार्य दस्तावेज़ सत्यापन पोर्टफोलियो</h2>
-                  <p className="card-header-sub">हरियाणा समाज कल्याण नियम अनुसार आवश्यक 6 प्रमाण</p>
+                  <h2 className="card-header-title">{t.detail.docPortfolioTitle}</h2>
+                  <p className="card-header-sub">{t.detail.docPortfolioSub}</p>
                 </div>
               </div>
               <span className="doc-count-tag">
-                {6 - analysis.missingDocuments.length} / 6 उपलब्ध
+                {interpolate(t.detail.docCountTag, { count: 6 - analysis.missingDocuments.length })}
               </span>
             </div>
 
@@ -465,6 +474,7 @@ export default function ApplicationDetailClient({
                     submitted.toLowerCase().includes("expired"));
                 const isPresent = Boolean(submitted) && !isExpired;
                 const isMissing = !submitted;
+                const docDisplayName = language === "en" ? (t.docs[reqDoc as keyof typeof t.docs] || reqDoc) : reqDoc;
 
                 return (
                   <div
@@ -479,29 +489,29 @@ export default function ApplicationDetailClient({
                   >
                     <div className="doc-left">
                       <span className="doc-status-icon">
-                        {isMissing ? "❌" : isExpired ? "⚠️" : "✅"}
+                        {isMissing ? <Icon name="xCircle" size={20} /> : isExpired ? <Icon name="alertTriangle" size={20} /> : <Icon name="checkCircle" size={20} />}
                       </span>
                       <div>
-                        <div className="doc-name">{reqDoc}</div>
+                        <div className="doc-name">{docDisplayName}</div>
                         <div className="doc-status-sub">
                           {isMissing
-                            ? "दस्तावेज़ संलग्न नहीं है"
+                            ? t.detail.docMissingSub
                             : isExpired
-                            ? "दस्तावेज़ की समयावधि समाप्त हो चुकी है"
-                            : "प्रमाणित व मान्य संलग्नक"}
+                            ? t.detail.docExpiredSub
+                            : t.detail.docValidSub}
                         </div>
                       </div>
                     </div>
 
                     <div className="doc-right">
                       {isMissing && (
-                        <span className="doc-pill pill-red">लापता</span>
+                        <span className="doc-pill pill-red">{t.detail.docPillMissing}</span>
                       )}
                       {isExpired && (
-                        <span className="doc-pill pill-amber">वैधता समाप्त</span>
+                        <span className="doc-pill pill-amber">{t.detail.docPillExpired}</span>
                       )}
                       {isPresent && (
-                        <span className="doc-pill pill-green">संलग्न ✓</span>
+                        <span className="doc-pill pill-green">{t.detail.docPillAttached}</span>
                       )}
                     </div>
                   </div>
@@ -513,15 +523,15 @@ export default function ApplicationDetailClient({
 
         {/* RIGHT COLUMN: AI Copilot & Decision Terminal */}
         <div className="column-right">
-          {/* Card 4: Google Gemini AI Copilot Station */}
+          {/* Card 4: AI Copilot Station */}
           <div className="ai-station-card executive-card">
             <div className="ai-station-header">
               <div className="ai-header-left">
-                <div className="ai-sparkle-icon">✨</div>
+                <div className="ai-sparkle-icon"><Icon name="sparkles" size={20} /></div>
                 <div>
-                  <div className="ai-header-title">Google Gemini AI समीक्षा सह-पायलट</div>
+                  <div className="ai-header-title">{t.detail.aiCopilotTitle}</div>
                   <div className="ai-header-sub">
-                    इंजन: {analysis.source === "GEMINI_AI" ? "Gemini 2.5 Flash / Pro" : "स्थानीय नियम इंजन (Rule Engine)"}
+                    {t.detail.enginePrefix}: {analysis.source === "RULE_ENGINE" ? t.detail.ruleEngineName : analysis.model ?? "AI"}
                   </div>
                 </div>
               </div>
@@ -532,16 +542,21 @@ export default function ApplicationDetailClient({
                 disabled={isRefreshingAi}
                 className="btn-refresh-ai"
               >
-                {isRefreshingAi ? "विश्लेषण हो रहा है…" : "🔄 पुनः विश्लेषण"}
+                {isRefreshingAi ? t.detail.aiAnalyzing : <><Icon name="refresh" size={14} /> {t.detail.aiReanalyze}</>}
               </button>
             </div>
 
             <div className="ai-disclaimer-strip">
-              <span>ℹ️</span>
-              <span>
-                AI केवल नीतिगत सहायता व सिफारिश प्रदान करता है। अंतिम विधिक निर्णय अधिकारी का होगा।
-              </span>
+              <Icon name="info" size={14} />
+              <span>{t.detail.aiDisclaimer}</span>
             </div>
+
+            {analysis.source === "RULE_ENGINE" && (
+              <div className="ai-fallback-banner" role="status">
+                <Icon name="alertTriangle" size={15} />
+                <span>{t.detail.aiFallbackBanner}</span>
+              </div>
+            )}
 
             <div className="ai-content-body">
               {/* AI Recommendation Banner */}
@@ -552,18 +567,18 @@ export default function ApplicationDetailClient({
                   <div className="rec-decision-pill">
                     <span className="rec-icon">
                       {analysis.suggestedDecision === "APPROVE"
-                        ? "✅"
+                        ? <Icon name="checkCircle" size={20} />
                         : analysis.suggestedDecision === "REJECT"
-                        ? "❌"
-                        : "↩️"}
+                        ? <Icon name="xCircle" size={20} />
+                        : <Icon name="rotateCcw" size={20} />}
                     </span>
                     <span className="rec-text">
-                      AI सुझाई गई कार्यवाही:{" "}
+                      {t.detail.aiSuggestedAction}:{" "}
                       {analysis.suggestedDecision === "APPROVE"
-                        ? "स्वीकृत करें (APPROVE)"
+                        ? t.detail.decisionApproveFull
                         : analysis.suggestedDecision === "REJECT"
-                        ? "अस्वीकृत करें (REJECT)"
-                        : "दस्तावेज़ हेतु वापस लौटाएं (RETURN)"}
+                        ? t.detail.decisionRejectFull
+                        : t.detail.decisionReturnFull}
                     </span>
                   </div>
 
@@ -573,7 +588,7 @@ export default function ApplicationDetailClient({
                       onClick={handlePrefillAiReason}
                       className="btn-apply-ai"
                     >
-                      ⚡ AI सिफ़ारिश लागू करें
+                      <Icon name="zap" size={13} /> {t.detail.applyAiRecommendation}
                     </button>
                   )}
                 </div>
@@ -585,7 +600,7 @@ export default function ApplicationDetailClient({
               {analysis.inconsistencies && analysis.inconsistencies.length > 0 && (
                 <div className="inconsistencies-section">
                   <div className="section-subtitle">
-                    ⚠️ पहचानी गई विसंगतियाँ ({analysis.inconsistencies.length})
+                    <Icon name="alertTriangle" size={15} /> {interpolate(t.detail.discrepanciesTitle, { count: analysis.inconsistencies.length })}
                   </div>
                   <div className="inconsistencies-list">
                     {analysis.inconsistencies.map((item, idx) => (
@@ -593,10 +608,10 @@ export default function ApplicationDetailClient({
                         <div className="inc-header">
                           <span className={`inc-severity-tag tag-${item.severity.toLowerCase()}`}>
                             {item.severity === "CRITICAL"
-                              ? "🚨 गंभीर (Critical)"
+                              ? t.detail.severityCritical
                               : item.severity === "WARNING"
-                              ? "⚠️ चेतावनी (Warning)"
-                              : "ℹ️ सूचना (Info)"}
+                              ? t.detail.severityWarning
+                              : t.detail.severityInfo}
                           </span>
                           <span className="inc-field">{item.fieldOrDoc}</span>
                         </div>
@@ -610,7 +625,7 @@ export default function ApplicationDetailClient({
               {/* Actionable Findings / Reasons List */}
               <div className="findings-section">
                 <div className="findings-header">
-                  <span>विस्तृत जाँच निष्कर्ष ({analysis.reasons.length})</span>
+                  <span>{interpolate(t.detail.findingsTitle, { count: analysis.reasons.length })}</span>
                 </div>
                 <div className="findings-list">
                   {analysis.reasons.map((r, i) => (
@@ -628,10 +643,10 @@ export default function ApplicationDetailClient({
           <div className="executive-card decision-station-card">
             <div className="card-header-styled">
               <div className="card-title-flex">
-                <span className="card-header-icon">🖋️</span>
+                <span className="card-header-icon"><Icon name="pen" size={20} /></span>
                 <div>
-                  <h2 className="card-header-title">कार्यपालक निर्णय केंद्र (Officer Decision)</h2>
-                  <p className="card-header-sub">अधिकारी के रूप में अंतिम निर्णय व अनिवार्य टिप्पणी दर्ज करें</p>
+                  <h2 className="card-header-title">{t.detail.decisionStationTitle}</h2>
+                  <p className="card-header-sub">{t.detail.decisionStationSub}</p>
                 </div>
               </div>
             </div>
@@ -639,7 +654,7 @@ export default function ApplicationDetailClient({
             {/* Success Alert */}
             {successMsg && (
               <div className="alert-box alert-success">
-                <span>✅</span>
+                <Icon name="checkCircle" size={16} />
                 <span>{successMsg}</span>
               </div>
             )}
@@ -647,7 +662,7 @@ export default function ApplicationDetailClient({
             {/* Error Alert */}
             {formError && (
               <div className="alert-box alert-error">
-                <span>⚠️</span>
+                <Icon name="alertTriangle" size={16} />
                 <span>{formError}</span>
               </div>
             )}
@@ -656,8 +671,8 @@ export default function ApplicationDetailClient({
             {app.status !== "PENDING" ? (
               <div className="already-decided-box">
                 <div className="decided-badge-row">
-                  <span className="lock-icon">🔒</span>
-                  <span className="decided-title">यह आवेदन पूर्व में ही निस्तारित किया जा चुका है:</span>
+                  <span className="lock-icon"><Icon name="lock" size={16} /></span>
+                  <span className="decided-title">{t.detail.alreadyDecidedTitle}</span>
                   <span
                     className="status-pill"
                     style={{
@@ -669,15 +684,13 @@ export default function ApplicationDetailClient({
                     {statusStyle.label}
                   </span>
                 </div>
-                <p className="decided-sub">
-                  हरियाणा लोक सेवा अधिकार अधिनियम व डिजिटल ऑडिट ट्रेल नियमों के तहत अंतिम रूप से स्वीकृत अथवा अस्वीकृत आवेदनों पर दोहरा निर्णय प्रतिबन्धित है।
-                </p>
+                <p className="decided-sub">{t.detail.alreadyDecidedSub}</p>
               </div>
             ) : (
               <div className="decision-form">
                 {/* 3 Interactive Decision Option Cards */}
                 <div className="decision-cards-group">
-                  <label className="section-field-label">अंतिम निर्णय चुनें (अनिवार्य):</label>
+                  <label className="section-field-label">{t.detail.chooseDecisionLabel}</label>
                   <div className="decision-options-grid">
                     {/* APPROVE */}
                     <button
@@ -690,9 +703,9 @@ export default function ApplicationDetailClient({
                         selectedDecision === "APPROVE" ? "opt-active" : ""
                       }`}
                     >
-                      <span className="decision-btn-icon">✓</span>
-                      <span className="decision-btn-label">स्वीकृत करें</span>
-                      <span className="decision-btn-sub">Approve</span>
+                      <span className="decision-btn-icon"><Icon name="check" size={22} strokeWidth={2.2} /></span>
+                      <span className="decision-btn-label">{t.detail.actionApprove}</span>
+                      <span className="decision-btn-sub">{t.detail.actionApproveSub}</span>
                     </button>
 
                     {/* REJECT */}
@@ -706,9 +719,9 @@ export default function ApplicationDetailClient({
                         selectedDecision === "REJECT" ? "opt-active" : ""
                       }`}
                     >
-                      <span className="decision-btn-icon">✕</span>
-                      <span className="decision-btn-label">अस्वीकृत करें</span>
-                      <span className="decision-btn-sub">Reject</span>
+                      <span className="decision-btn-icon"><Icon name="x" size={22} strokeWidth={2.2} /></span>
+                      <span className="decision-btn-label">{t.detail.actionReject}</span>
+                      <span className="decision-btn-sub">{t.detail.actionRejectSub}</span>
                     </button>
 
                     {/* RETURN */}
@@ -722,19 +735,19 @@ export default function ApplicationDetailClient({
                         selectedDecision === "RETURN" ? "opt-active" : ""
                       }`}
                     >
-                      <span className="decision-btn-icon">↩</span>
-                      <span className="decision-btn-label">वापस लौटाएं</span>
-                      <span className="decision-btn-sub">Return</span>
+                      <span className="decision-btn-icon"><Icon name="rotateCcw" size={22} strokeWidth={2.2} /></span>
+                      <span className="decision-btn-label">{t.detail.actionReturn}</span>
+                      <span className="decision-btn-sub">{t.detail.actionReturnSub}</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Quick Presets for Selected Decision */}
-                {selectedDecision && PRESET_REASONS[selectedDecision] && (
+                {selectedDecision && presetReasons[selectedDecision] && (
                   <div className="preset-reasons-wrap">
-                    <span className="preset-label">त्वरित कारण चुनें:</span>
+                    <span className="preset-label">{t.detail.presetReasonsLabel}</span>
                     <div className="preset-buttons">
-                      {PRESET_REASONS[selectedDecision].map((p, i) => (
+                      {presetReasons[selectedDecision].map((p, i) => (
                         <button
                           key={i}
                           type="button"
@@ -754,13 +767,11 @@ export default function ApplicationDetailClient({
                 {/* Override Alert Warning */}
                 {isOverriddenChoice && (
                   <div className="override-warning-box">
-                    <div className="override-icon">⚠️</div>
+                    <div className="override-icon"><Icon name="alertTriangle" size={20} /></div>
                     <div>
-                      <div className="override-title">AI सिफ़ारिश से भिन्न निर्णय (Override Alert)</div>
+                      <div className="override-title">{t.detail.overrideWarningTitle}</div>
                       <div className="override-desc">
-                        आप AI द्वारा सुझाई गई कार्यवाही (
-                        <strong>{analysis.suggestedDecision}</strong>) के विपरीत निर्णय ले रहे हैं।
-                        ऑडिट ट्रेल में यह प्रविष्टि विशेष रूप से दर्ज की जाएगी। कृपया नीचे ठोस कारण लिखें।
+                        {t.detail.overrideWarningDesc1} (<strong>{analysis.suggestedDecision}</strong>) {t.detail.overrideWarningDesc2}
                       </div>
                     </div>
                   </div>
@@ -770,14 +781,14 @@ export default function ApplicationDetailClient({
                 <div className="reason-input-group">
                   <div className="reason-header-row">
                     <label htmlFor="reasonInput" className="section-field-label">
-                      निर्णय का विधिक व तथ्यात्मक कारण <span className="req-star">*</span>
+                      {t.detail.reasonInputLabel} <span className="req-star">*</span>
                     </label>
                     <button
                       type="button"
                       onClick={handlePrefillAiReason}
                       className="btn-quick-fill"
                     >
-                      📋 AI का सुझाव भरें
+                      <Icon name="copy" size={13} /> {t.detail.btnFillAiSuggestion}
                     </button>
                   </div>
 
@@ -789,14 +800,14 @@ export default function ApplicationDetailClient({
                       if (formError) setFormError(null);
                     }}
                     rows={4}
-                    placeholder="यहाँ निर्णय का स्पष्ट व आधिकारिक कारण लिखें (उदा. सभी दस्तावेज़ पूर्ण व आयु 60+ सत्यापित होने पर पेंशन स्वीकृत की गई)..."
+                    placeholder={t.detail.reasonPlaceholder}
                     className="reason-textarea"
                   />
 
                   <div className="reason-footer-row">
-                    <span className="char-req">न्यूनतम 10 अक्षर अनिवार्य हैं।</span>
+                    <span className="char-req">{t.detail.minCharsRequired}</span>
                     <span className={`char-count ${reason.trim().length < 10 ? "char-invalid" : "char-valid"}`}>
-                      {reason.trim().length} / 10 अक्षर
+                      {interpolate(t.detail.charCounter, { count: reason.trim().length })}
                     </span>
                   </div>
                 </div>
@@ -808,7 +819,7 @@ export default function ApplicationDetailClient({
                   disabled={isPending}
                   className="btn-submit-decision"
                 >
-                  {isPending ? "प्रक्रियाधीन…" : "✓ अंतिम निर्णय सुरक्षित करें"}
+                  {isPending ? t.detail.submittingDecision : <><Icon name="check" size={16} strokeWidth={2.4} /> {t.detail.btnSubmitFinalDecision}</>}
                 </button>
               </div>
             )}
@@ -818,27 +829,28 @@ export default function ApplicationDetailClient({
           <div className="executive-card audit-trail-card">
             <div className="card-header-styled">
               <div className="card-title-flex">
-                <span className="card-header-icon">📜</span>
+                <span className="card-header-icon"><Icon name="history" size={20} /></span>
                 <div>
-                  <h2 className="card-header-title">अपरिवर्तनीय डिजिटल ऑडिट ट्रेल</h2>
-                  <p className="card-header-sub">अधिकारियों द्वारा की गई सभी कार्यवाहियों का स्थायी रिकॉर्ड</p>
+                  <h2 className="card-header-title">{t.detail.auditTrailTitle}</h2>
+                  <p className="card-header-sub">{t.detail.auditTrailSub}</p>
                 </div>
               </div>
               <span className="audit-count-badge">
-                {app.auditLogs.length} प्रविष्टियाँ
+                {interpolate(t.detail.auditEntriesCount, { count: app.auditLogs.length })}
               </span>
             </div>
 
             {app.auditLogs.length === 0 ? (
               <div className="empty-audit-box">
-                <span className="empty-audit-icon">🛡️</span>
-                <p>इस आवेदन पर पूर्व में कोई कार्यवाही दर्ज नहीं हुई है। आपका निर्णय पहला ऑडिट रिकॉर्ड बनेगा।</p>
+                <span className="empty-audit-icon"><Icon name="shieldCheck" size={36} strokeWidth={1.5} /></span>
+                <p>{t.detail.emptyAuditText}</p>
               </div>
             ) : (
               <div className="audit-timeline">
                 {app.auditLogs.map((log) => {
-                  const isApproved = log.action === "स्वीकृत";
-                  const isRejected = log.action === "अस्वीकृत";
+                  const isApproved = log.action === "स्वीकृत" || log.action === "APPROVED";
+                  const isRejected = log.action === "अस्वीकृत" || log.action === "REJECTED";
+                  const isRegistered = log.action === "पंजीकृत";
 
                   return (
                     <div
@@ -848,24 +860,26 @@ export default function ApplicationDetailClient({
                           ? "entry-approved"
                           : isRejected
                           ? "entry-rejected"
+                          : isRegistered
+                          ? "entry-registered"
                           : "entry-returned"
                       }`}
                     >
                       <div className="entry-header">
                         <div className="officer-meta">
                           <span className="officer-name">{log.officer.name}</span>
-                          <span className="officer-desig">({log.officer.designation || "तहसीलदार"})</span>
+                          <span className="officer-desig">({log.officer.designation || (language === "en" ? "Tehsildar" : "तहसीलदार")})</span>
                         </div>
 
                         <div className="entry-badges">
                           {log.overridden && (
                             <span className="badge-override">
-                              ⚠️ AI सुझाव से भिन्न निर्णय
+                              <Icon name="alertTriangle" size={12} /> {t.detail.auditOverriddenBadge}
                             </span>
                           )}
-                          <span className="badge-action">{log.action}</span>
+                          <span className="badge-action">{getAuditActionLabel(log.action)}</span>
                           <span className="entry-time">
-                            {new Date(log.createdAt).toLocaleString("hi-IN", {
+                            {new Date(log.createdAt).toLocaleString(locale, {
                               day: "2-digit",
                               month: "short",
                               year: "numeric",
@@ -878,7 +892,7 @@ export default function ApplicationDetailClient({
 
                       {log.reason && (
                         <div className="entry-reason">
-                          <strong>दर्ज कारण:</strong> {log.reason}
+                          <strong>{t.detail.auditRecordedReason}:</strong> {log.reason}
                         </div>
                       )}
                     </div>
@@ -895,30 +909,30 @@ export default function ApplicationDetailClient({
         <div className="modal-backdrop">
           <div className="modal-card executive-card">
             <div className="modal-header">
-              <div className="modal-icon-wrap">⚠️</div>
+              <div className="modal-icon-wrap"><Icon name="alertTriangle" size={22} /></div>
               <div>
-                <h3 className="modal-title">क्या आप वाकई यह निर्णय दर्ज करना चाहते हैं?</h3>
-                <p className="modal-sub">यह निर्णय स्थायी रूप से डेटाबेस व ऑडिट ट्रेल में दर्ज हो जाएगा।</p>
+                <h3 className="modal-title">{t.detail.confirmModalTitle}</h3>
+                <p className="modal-sub">{t.detail.confirmModalSub}</p>
               </div>
             </div>
 
             <div className="modal-summary-box">
               <div className="summary-line">
-                <span className="sum-label">आवेदक:</span>
+                <span className="sum-label">{t.detail.confirmModalApplicant}:</span>
                 <span className="sum-val">{app.applicantName}</span>
               </div>
               <div className="summary-line">
-                <span className="sum-label">चयनित निर्णय:</span>
+                <span className="sum-label">{t.detail.confirmModalDecision}:</span>
                 <span className="sum-val font-bold">
                   {selectedDecision === "APPROVE"
-                    ? "स्वीकृत करें (APPROVE)"
+                    ? t.detail.decisionApproveFull
                     : selectedDecision === "REJECT"
-                    ? "अस्वीकृत करें (REJECT)"
-                    : "वापस लौटाएं (RETURN)"}
+                    ? t.detail.decisionRejectFull
+                    : t.detail.decisionReturnFull}
                 </span>
               </div>
               <div className="summary-line">
-                <span className="sum-label">दर्ज कारण:</span>
+                <span className="sum-label">{t.detail.confirmModalReason}:</span>
                 <span className="sum-val">{reason}</span>
               </div>
             </div>
@@ -929,14 +943,14 @@ export default function ApplicationDetailClient({
                 onClick={() => setShowConfirmModal(false)}
                 className="btn-modal-cancel"
               >
-                रद्द करें
+                {t.detail.confirmModalCancel}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDecision}
                 className="btn-modal-confirm"
               >
-                हाँ, निर्णय पुष्टि करें
+                {t.detail.confirmModalConfirm}
               </button>
             </div>
           </div>
@@ -1439,6 +1453,20 @@ export default function ApplicationDetailClient({
           transform: translateY(-1px);
         }
 
+        .ai-fallback-banner {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin: 1rem 1.5rem 0;
+          padding: 0.65rem 0.85rem;
+          border-radius: 10px;
+          background: var(--clr-amber-light);
+          border: 1px solid var(--clr-amber-border);
+          color: var(--clr-amber-hover);
+          font-size: 0.8rem;
+          font-weight: 600;
+        }
+
         .ai-disclaimer-strip {
           background: #f8fafc;
           border-bottom: 1px solid #e2e8f0;
@@ -1939,6 +1967,11 @@ export default function ApplicationDetailClient({
         .entry-returned {
           border-left: 4px solid #f59e0b;
           background: #fffbeb;
+        }
+
+        .entry-registered {
+          border-left: 4px solid #3b82f6;
+          background: #eff6ff;
         }
 
         .entry-header {

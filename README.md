@@ -15,13 +15,15 @@ This application provides officers with a streamlined triage dashboard, determin
 
 ---
 
-## 2. Screenshots (Placeholders)
+## 2. Screenshots
 
-- **Login Screen:** `[Screenshot Placeholder: Login Page with Devanagari branding]`
-- **Triage Dashboard:** `[Screenshot Placeholder: Priority Dashboard with SLA alerts, stat cards, and urgency ordering]`
-- **Application Review:** `[Screenshot Placeholder: Two-column layout with applicant details, document checklist, and AI assistance panel]`
-- **Confirmation Dialog:** `[Screenshot Placeholder: Hindi confirmation modal before recording decision]`
-- **Audit Trail:** `[Screenshot Placeholder: Chronological timeline of officer decisions showing overrides and reasons]`
+| Triage Dashboard | Application Review (under-age case, hard-rule lock) |
+| :---: | :---: |
+| ![Triage dashboard with SLA alert, KPI cards and urgency-ordered queue](docs/screenshots/dashboard.png) | ![Review page showing rule-engine REJECT with cited age discrepancy](docs/screenshots/application-review.png) |
+| **New Application Intake** | **Login** |
+| ![Intake form with live eligibility preview](docs/screenshots/new-application.png) | ![Bilingual login page](docs/screenshots/login.png) |
+
+<p align="center"><img src="docs/screenshots/dashboard-mobile.png" alt="Dashboard on a phone: compact header and card view" width="280" /><br/><em>Mobile: compact header and automatic card view</em></p>
 
 ---
 
@@ -51,6 +53,18 @@ This application provides officers with a streamlined triage dashboard, determin
 8. **Next.js 16 File Conventions & Cache Components Config:**
    - *Why:* In Next.js 16 with `cacheComponents: true`, authenticated dynamic server components use `export const instant = false;` (the official route segment config for blocking routes documented in `node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/instant.md`, as `dynamic = "force-dynamic"` is superseded when cacheComponents is active). Route protection uses `proxy.ts` with NextAuth v5's `authorized` callback redirect, supported by defense-in-depth checks inside `app/(protected)/layout.tsx` and Server Actions.
 
+9. **Officer-Side Application Intake (`/applications/new`):**
+   - *Why:* Offline applications collected at the counter must enter the same review queue as online ones. Officers register them through a bilingual form; the same Zod schema (`lib/intake.ts`) validates on the client for instant feedback and again inside the Server Action. Only the last 4 digits of Aadhaar and bank account are collected and stored in the existing masked format. A live preview shows the statutory checks (age, income, documents) using the thresholds from `lib/eligibility.ts`, but it is advisory only — the review flow, rule engine and officer decision are unchanged. The application and an append-only `पंजीकृत` audit entry (who registered it, documents attached, priority reason) are written in one `prisma.$transaction`, so the audit trail starts at intake.
+
+10. **Reports & AI Accountability (`/reports`):**
+   - *Why:* "Officer always decides" should be verifiable, not just claimed. The Reports page derives every figure from the append-only audit trail via pure, unit-tested functions (`lib/reports.ts`): decisions by outcome, **agreement rate between AI suggestion and officer decision** (with a 3×3 AI-vs-officer matrix exposing every override), average days from submission to decision, and SLA compliance. Supervisors can download the full audit trail as a UTF-8 CSV (Excel-safe Devanagari) for offline inspection.
+
+11. **Mobile-First Field Use:**
+   - *Why:* Block officers often work from phones. Below 768px the dashboard switches to its card view automatically (an explicit toggle still wins), the header collapses to icon buttons with accessible labels, and no page scrolls horizontally.
+
+12. **Provider-Agnostic LLM Layer (Groq gpt-oss-120b, or Google Gemini):**
+   - *Why:* The officer workflow must not depend on one vendor's pricing or regional availability (Gemini's free tier was unavailable for my account). `getLlmProvider()` in `lib/ai.ts` picks Groq when `GROQ_API_KEY` is set (free tier, OpenAI-compatible JSON mode, sub-second latency), otherwise Gemini, otherwise the rule engine alone. Both providers receive the same prompt and pass through the same Zod validation and hard-rule lock, so switching providers cannot change statutory outcomes. The review page shows which engine produced each analysis.
+
 ---
 
 ## 4. What AI Does vs What AI Does NOT Do
@@ -64,7 +78,7 @@ This application provides officers with a streamlined triage dashboard, determin
 | Pre-fills suggested reason text for the officer to edit or adopt with one click. | Cannot bypass statutory eligibility even if prompted adversarially. |
 
 ### Fallback Behavior
-If `GEMINI_API_KEY` is not provided, is invalid, or the API experiences network downtime, the system automatically runs the local rule engine and displays an informative Hindi banner:
+If no AI key (`GROQ_API_KEY` or `GEMINI_API_KEY`) is provided, the key is invalid, or the provider is down, the system automatically runs the local rule engine and displays an informative Hindi banner:
 > `ℹ️ एआई सेवा अनुपलब्ध होने के कारण स्थानीय नियम-आधारित विश्लेषण प्रदर्शित है।`
 
 ---
@@ -109,8 +123,10 @@ Open `.env` and fill in the values:
 DATABASE_URL="postgresql://user:password@ep-xyz-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
 DIRECT_URL="postgresql://user:password@ep-xyz.us-east-2.aws.neon.tech/neondb?sslmode=require"
 AUTH_SECRET="your-generated-random-string-at-least-32-chars"
-GEMINI_API_KEY="your-google-ai-studio-api-key"
-AI_MODEL="gemini-2.5-flash"
+GROQ_API_KEY="your-groq-api-key"          # free: https://console.groq.com/keys (preferred)
+GROQ_MODEL="openai/gpt-oss-120b"
+GEMINI_API_KEY="your-google-ai-studio-api-key"  # optional alternative
+AI_MODEL="gemini-3.8-flash"
 NEXTAUTH_URL="http://localhost:3000"
 ```
 
@@ -149,13 +165,20 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 
 ### 2. Environment Variables in Vercel
-When importing the project in the Vercel dashboard, add these environment variables:
-- `DATABASE_URL` (Neon pooled connection string)
-- `DIRECT_URL` (Neon direct connection string for migrations)
-- `AUTH_SECRET` (Generated random 32-byte secret)
-- `GEMINI_API_KEY` (Google AI Studio API key)
-- `AI_MODEL` (`gemini-2.5-flash`)
-- `NEXTAUTH_URL` (`https://your-production-domain.vercel.app`)
+Set these in **Vercel → Project → Settings → Environment Variables** (Production). They are read only on the server; none are prefixed `NEXT_PUBLIC_`, so they never reach the browser. `.env` is git-ignored and excluded from CLI uploads by `.vercelignore`.
+
+| Variable | Required | Value |
+| :--- | :---: | :--- |
+| `DATABASE_URL` | ✅ | Neon **pooled** connection string (host contains `-pooler`) — used by the app at runtime |
+| `DIRECT_URL` | ✅ | Neon **direct** connection string — used only by Prisma migrations |
+| `AUTH_SECRET` | ✅ | Random 32-byte secret (`openssl rand -base64 32`) for signing session JWTs |
+| `GROQ_API_KEY` | ✅ | Free Groq key from [console.groq.com/keys](https://console.groq.com/keys) |
+| `GROQ_MODEL` | ✅ | `openai/gpt-oss-120b` |
+| `GEMINI_API_KEY`, `AI_MODEL` | optional | Only used if no Groq key is set |
+
+Do **not** set `NEXTAUTH_URL` to `localhost` in Vercel — Auth.js detects the deployment URL automatically on Vercel.
+
+The build (`prisma generate && next build`) never modifies the database. Hosting runs entirely on free tiers: Vercel Hobby, Neon Free and Groq Free.
 
 ### 3. Running Migrations & Seed on Production Database
 Run migrations against the production database securely from your terminal using your production environment:
@@ -163,13 +186,14 @@ Run migrations against the production database securely from your terminal using
 DATABASE_URL="<PROD_URL>" DIRECT_URL="<PROD_DIRECT_URL>" npx prisma migrate deploy
 DATABASE_URL="<PROD_URL>" npm run db:seed
 ```
+> ⚠️ `db:seed` **deletes all applications and audit logs** before recreating the sample data. Run it only to reset a demo database, never after reviewers have recorded decisions.
 
 ---
 
 ## 9. Verification & Quality Commands
 
 ```bash
-# 1. Run unit test suite (15 tests)
+# 1. Run unit test suite (21 tests)
 npm test
 
 # 2. Run TypeScript strict type check (0 errors)
@@ -207,3 +231,13 @@ npm run build
 4. **Attempt Double Decision on a Processed Application:**
    - Open any already processed application (e.g. **घनश्याम दास**).
    - Verify the decision panel shows `🔒 इस आवेदन पर अंतिम निर्णय दर्ज हो चुका है (Read-only)` and form buttons are disabled.
+
+5. **Register a New Application:**
+   - Click "＋ नया आवेदन" in the header.
+   - Fill in the details with a birth date over 60 years ago, income ≤ ₹2,00,000 and only 4 of the 6 documents; verify the eligibility preview shows "दस्तावेज़ अधूरे — वापसी संभावित".
+   - Submit; verify you land on the new application's review page, the AI suggests **वापस लौटाएं (Return)**, and the audit trail shows an "आवेदन पंजीकृत" entry.
+
+6. **Audit Reports & CSV Export:**
+   - Click "📈 रिपोर्ट" in the header after recording a few decisions.
+   - Verify the AI agreement rate and the AI-vs-officer matrix reflect your decisions (an override lands off the diagonal and is tagged "AI से भिन्न" in Recent Activity).
+   - Click "CSV डाउनलोड करें" and open the file in Excel; Devanagari names and reasons display correctly.

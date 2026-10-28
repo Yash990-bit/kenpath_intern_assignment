@@ -194,3 +194,50 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+/* ─── New Application Intake Layout ─────────────────────────────────────── */
+.intake-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.intake-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .intake-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  }
+
+  .intake-aside {
+    position: sticky;
+    top: 88px;
+  }
+}
+
+/* ─── Compact Header on Phones ──────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .ph-header {
+    padding: 0.5rem 1rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .ph-subtitle,
+  .ph-label {
+    display: none !important;
+  }
+
+  .ph-actions {
+    gap: 0.45rem !important;
+  }
+
+  /* Identity is already shown in the dashboard greeting */
+  .ph-officer {
+    display: none !important;
+  }
+}

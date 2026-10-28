@@ -1,9 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Application } from "@prisma/client";
-import { analyzeWithRules, calculateAge, isDuplicateApplication } from "../lib/ai";
+import { analyzeWithRules, calculateAge, getLlmProvider, isDuplicateApplication } from "../lib/ai";
 import { isSlaBreached } from "../lib/eligibility";
 import { calculateUrgencyScore } from "../lib/urgency";
+import { auditLogsToCsv, computeReportMetrics, ReportLog } from "../lib/reports";
 
 // Helper to create mock applications
 function createMockApp(overrides: Partial<Application> = {}): Application {
@@ -414,4 +415,188 @@ test("15. Empty Reasons Never Happens: REJECT and RETURN always have at least 1 
   const resIncome = await analyzeWithRules(overIncomeApp, { checkDbDuplicates: false });
   assert.equal(resIncome.suggestedDecision, "REJECT");
   assert.ok(resIncome.reasons.length >= 1, "Over income REJECT must have >= 1 reason");
+});
+
+test("16. Bilingual English Support: Clean Application outputs professional English summary & reasons", async () => {
+  const app = createMockApp();
+  const res = await analyzeWithRules(app, { checkDbDuplicates: false, lang: "en" });
+
+  assert.equal(res.suggestedDecision, "APPROVE");
+  assert.equal(res.missingDocuments.length, 0);
+  assert.equal(res.inconsistencies.length, 0);
+  assert.match(res.summary, /statutory eligibility criteria are fulfilled/i);
+  assert.match(res.summary, /No discrepancies found/i);
+  assert.ok(res.reasons.length > 0);
+  assert.ok(
+    res.reasons.some((r) => r.includes("comply with statutory eligibility norms")),
+    "Income and age reason must be in English"
+  );
+  assert.ok(
+    res.reasons.some((r) => r.includes("All 6 mandatory documents are verified and attached")),
+    "Documents reason must be in English"
+  );
+});
+
+test("17. Bilingual English Support: Inconsistencies & Missing Docs localized in English", async () => {
+  const app = createMockApp({
+    applicantName: "Suresh Lal",
+    bankAccountHolder: "Sumitra Devi", // Bank mismatch
+    documentsSubmitted: [
+      "आयु प्रमाण पत्र",
+      // "आय प्रमाण पत्र" missing
+      "आधार कार्ड",
+      "बैंक पासबुक",
+      "निवास प्रमाण पत्र",
+      "पासपोर्ट साइज फोटो",
+    ],
+  });
+  const res = await analyzeWithRules(app, { checkDbDuplicates: false, lang: "en" });
+
+  assert.equal(res.suggestedDecision, "RETURN");
+  assert.ok(
+    res.missingDocuments.includes("Income Certificate"),
+    "Missing docs must be translated to English"
+  );
+  assert.match(res.summary, /Discrepancies or missing documents were found/i);
+
+  const bankInc = res.inconsistencies.find((i) =>
+    i.fieldOrDoc.includes("Bank Passbook")
+  );
+  assert.ok(bankInc, "Bank mismatch must have English fieldOrDoc title");
+  assert.match(bankInc?.issue || "", /completely different from applicant name/i);
+
+  const docInc = res.inconsistencies.find((i) =>
+    i.fieldOrDoc.includes("Income Certificate")
+  );
+  assert.ok(docInc, "Missing document issue must be labeled in English");
+  assert.match(docInc?.issue || "", /is not attached/i);
+});
+
+// ─── Reports & Accountability Metrics ───────────────────────────────────────
+
+function createMockLog(overrides: Partial<ReportLog> = {}): ReportLog {
+  return {
+    id: "log-1",
+    applicationId: "app-1",
+    applicantName: "सुरेश लाल",
+    officerName: "राम कुमार शर्मा",
+    action: "स्वीकृत",
+    aiSuggested: "APPROVE",
+    finalDecision: "APPROVE",
+    overridden: false,
+    reason: "सभी दस्तावेज़ सत्यापित",
+    createdAt: new Date("2026-10-11T10:00:00Z"),
+    ...overrides,
+  };
+}
+
+test("18. Reports: AI agreement, override matrix and SLA compliance from audit logs", () => {
+  const ref = new Date("2026-10-28T00:00:00Z");
+  const apps = [
+    { id: "app-1", status: "APPROVED", submittedAt: new Date("2026-10-01T10:00:00Z") },
+    { id: "app-2", status: "REJECTED", submittedAt: new Date("2026-09-01T10:00:00Z") },
+    { id: "app-3", status: "PENDING", submittedAt: new Date("2026-09-20T10:00:00Z") }, // 38 days → breached
+    { id: "app-4", status: "PENDING", submittedAt: new Date("2026-10-25T10:00:00Z") },
+  ];
+  const logs = [
+    // app-1: decided after 10 days, agrees with AI
+    createMockLog(),
+    // app-2: decided after 40 days, officer overrides AI (RETURN → REJECT)
+    createMockLog({
+      id: "log-2",
+      applicationId: "app-2",
+      action: "अस्वीकृत",
+      aiSuggested: "RETURN",
+      finalDecision: "REJECT",
+      overridden: true,
+      createdAt: new Date("2026-10-11T10:00:00Z"),
+    }),
+    // Registration entries are not decisions and must be ignored
+    createMockLog({ id: "log-3", applicationId: "app-4", action: "पंजीकृत", aiSuggested: null, finalDecision: null }),
+  ];
+
+  const m = computeReportMetrics(apps, logs, ref);
+  assert.equal(m.totalApplications, 4);
+  assert.equal(m.pendingCount, 2);
+  assert.equal(m.pendingSlaBreached, 1);
+  assert.equal(m.decisionCount, 2);
+  assert.deepEqual(m.decisionsByType, { APPROVE: 1, REJECT: 1, RETURN: 0 });
+  assert.equal(m.aiAgreementRate, 0.5);
+  assert.equal(m.overrideCount, 1);
+  assert.equal(m.agreementMatrix.RETURN.REJECT, 1);
+  assert.equal(m.agreementMatrix.APPROVE.APPROVE, 1);
+  assert.equal(m.avgDaysToDecision, 25);
+  assert.equal(m.slaComplianceRate, 0.5);
+});
+
+test("19. Reports: Empty audit trail yields null rates (no divide-by-zero)", () => {
+  const m = computeReportMetrics([], []);
+  assert.equal(m.decisionCount, 0);
+  assert.equal(m.aiAgreementRate, null);
+  assert.equal(m.avgDaysToDecision, null);
+  assert.equal(m.slaComplianceRate, null);
+});
+
+test("20. Reports: CSV export escapes commas/quotes and keeps Devanagari with BOM", () => {
+  const csv = auditLogsToCsv([createMockLog({ reason: 'आय "सत्यापित", दस्तावेज़ पूर्ण' })]);
+  assert.ok(csv.startsWith("\uFEFF"));
+  const lines = csv.slice(1).split("\r\n");
+  assert.equal(lines.length, 2);
+  assert.ok(lines[1].includes('"आय ""सत्यापित"", दस्तावेज़ पूर्ण"'));
+  assert.ok(lines[1].includes("सुरेश लाल"));
+});
+
+test("21. Summary: REJECT reasons are not repeated and have clean punctuation", async () => {
+  const app = createMockApp({ dob: new Date(Date.now() - 52 * 365.25 * 86_400_000) });
+  const hi = await analyzeWithRules(app, { checkDbDuplicates: false });
+  assert.equal(hi.suggestedDecision, "REJECT");
+  assert.ok(!/।[;।]/.test(hi.summary), `Malformed punctuation in: ${hi.summary}`);
+  assert.equal(hi.summary.split("52 वर्ष").length - 1, 2, "Age should appear once in header and once as the reason");
+});
+
+test("22. Reasons: each fact stated once, but uncovered critical issues are still surfaced", async () => {
+  const underageDob = new Date(Date.now() - 58 * 365.25 * 86_400_000);
+
+  // Under-age only: the age rule reason must not be repeated by its CRITICAL inconsistency
+  const underage = await analyzeWithRules(createMockApp({ dob: underageDob }), { checkDbDuplicates: false });
+  assert.equal(underage.suggestedDecision, "REJECT");
+  assert.equal(underage.reasons.length, 1, `Expected a single age reason, got: ${underage.reasons.join(" | ")}`);
+
+  // Under-age + missing document: REJECT still cites the missing document (no dedicated reason covers it)
+  const both = await analyzeWithRules(
+    createMockApp({ dob: underageDob, documentsSubmitted: ["आयु प्रमाण पत्र", "आधार कार्ड", "बैंक पासबुक", "निवास प्रमाण पत्र", "पासपोर्ट साइज फोटो"] }),
+    { checkDbDuplicates: false }
+  );
+  assert.equal(both.suggestedDecision, "REJECT");
+  assert.ok(both.reasons.some((r) => r.includes("आय प्रमाण पत्र")), "Missing income certificate must still be cited");
+});
+
+test("23. LLM provider selection: Groq preferred, Gemini fallback, none → rule engine", () => {
+  const saved = { groq: process.env.GROQ_API_KEY, gemini: process.env.GEMINI_API_KEY };
+  try {
+    process.env.GROQ_API_KEY = "gsk_test";
+    process.env.GEMINI_API_KEY = "gemini_test";
+    assert.match(getLlmProvider()?.label ?? "", /^Groq/);
+
+    process.env.GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"; // placeholder counts as not configured
+    assert.match(getLlmProvider()?.label ?? "", /^Google Gemini/);
+
+    delete process.env.GROQ_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    assert.equal(getLlmProvider(), null);
+  } finally {
+    if (saved.groq === undefined) delete process.env.GROQ_API_KEY; else process.env.GROQ_API_KEY = saved.groq;
+    if (saved.gemini === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = saved.gemini;
+  }
+});
+
+test("24. Minor bank-name spelling difference: APPROVE reasons never claim the name is verified", async () => {
+  const res = await analyzeWithRules(createMockApp({ bankAccountHolder: "सुरेश लाला" }), { checkDbDuplicates: false });
+  assert.equal(res.suggestedDecision, "APPROVE");
+  assert.ok(!res.reasons.some((r) => r.includes("सत्यापित पाया गया")), `Contradictory reason in: ${res.reasons.join(" | ")}`);
+  assert.equal(
+    res.reasons.filter((r) => r.includes("वर्तनी")).length,
+    1,
+    "Spelling difference should be stated exactly once"
+  );
 });

@@ -18,9 +18,11 @@ export async function GET(
 
     const { id } = await params;
     const force = req.nextUrl.searchParams.get("force") === "true";
+    const langParam = req.nextUrl.searchParams.get("lang");
+    const lang: "hi" | "en" = langParam === "en" ? "en" : "hi";
 
     // 2. Fetch cached analysis or compute fresh if missing/forced
-    const analysis = await getOrComputeAnalysis(id, force);
+    const analysis = await getOrComputeAnalysis(id, force, lang);
     return NextResponse.json(analysis);
   } catch (error) {
     console.error("AI Analysis route error:", error);

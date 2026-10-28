@@ -1,0 +1,9 @@
+# Never upload local secrets with `vercel deploy` — production values live in Vercel's encrypted env settings
+.env
+.env.*
+!.env.example
+
+# Local build output and caches (Vercel builds from source)
+.next
+node_modules
+*.tsbuildinfo

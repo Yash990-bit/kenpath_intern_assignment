@@ -6,8 +6,13 @@ import { analyzeWithRules } from "@/lib/ai";
 import { ApplicationStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { intakeSchema, type IntakeInput } from "@/lib/intake";
+import { REQUIRED_DOCUMENTS } from "@/lib/eligibility";
 
 export type DecisionType = "APPROVE" | "REJECT" | "RETURN";
+
+// Audit-log action recorded when an officer registers a new application
+const REGISTERED_ACTION_LABEL = "पंजीकृत";
 
 const decisionEnumSchema = z.enum(["APPROVE", "REJECT", "RETURN"]);
 
@@ -136,6 +141,80 @@ export async function submitDecision({
     return {
       success: false,
       error: msg,
+    };
+  }
+}
+
+export async function createApplication(
+  input: IntakeInput
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: "सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।",
+      };
+    }
+
+    // Re-validate server-side with the same schema the form uses
+    const parsed = intakeSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: "आवेदन विवरण अमान्य है। कृपया चिह्नित फ़ील्ड सुधारें।",
+      };
+    }
+    const data = parsed.data;
+
+    const officerId = session.user.id;
+
+    // Application + registration audit entry are written in ONE transaction
+    const created = await prisma.$transaction(async (tx) => {
+      // Only masked identifiers are persisted (last 4 digits)
+      const application = await tx.application.create({
+        data: {
+          applicantName: data.applicantName,
+          fatherHusbandName: data.fatherHusbandName,
+          dob: new Date(data.dob),
+          village: data.village,
+          tehsil: data.tehsil,
+          district: data.district,
+          aadhaarMasked: `XXXX-XXXX-XXXX-${data.aadhaarLast4}`,
+          bankAccountHolder: data.bankAccountHolder,
+          bankIFSC: data.bankIFSC,
+          bankAccountMasked: `XXXX${data.bankAccountLast4}`,
+          annualIncome: data.annualIncome,
+          documentsSubmitted: data.documentsSubmitted,
+          submittedAt: new Date(),
+          priority: data.priority,
+          flagNote: data.priority === "HIGH" ? data.flagNote : null,
+        },
+      });
+
+      // Append-only intake record: who registered it and with which documents
+      await tx.auditLog.create({
+        data: {
+          applicationId: application.id,
+          officerId,
+          action: REGISTERED_ACTION_LABEL,
+          reason:
+            `${data.documentsSubmitted.length}/${REQUIRED_DOCUMENTS.length} दस्तावेज़ संलग्न` +
+            (data.priority === "HIGH" ? ` · उच्च प्राथमिकता: ${data.flagNote}` : ""),
+        },
+      });
+
+      return application;
+    });
+
+    revalidatePath("/dashboard");
+
+    return { success: true, id: created.id };
+  } catch (error: unknown) {
+    console.error("createApplication failed:", error);
+    return {
+      success: false,
+      error: "सर्वर त्रुटि: आवेदन पंजीकृत करने में विफल।",
     };
   }
 }

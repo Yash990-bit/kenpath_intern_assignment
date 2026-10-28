@@ -1,25 +1,20 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Application, ApplicationStatus } from "@prisma/client";
 import { SLA_BREACH_DAYS, isSlaBreached } from "@/lib/eligibility";
 import { calculateUrgencyScore } from "@/lib/urgency";
 import { calculateAge } from "@/lib/ai";
 import GovEmblem from "@/components/GovEmblem";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import Icon from "@/components/Icon";
 
 export interface DashboardAppItem extends Application {
   _count: {
     auditLogs: number;
   };
 }
-
-const STATUS_LABELS: Record<ApplicationStatus, string> = {
-  PENDING: "लंबित",
-  APPROVED: "स्वीकृत",
-  REJECTED: "अस्वीकृत",
-  RETURNED: "वापस",
-};
 
 const STATUS_PILL_STYLES: Record<
   ApplicationStatus,
@@ -51,19 +46,24 @@ const STATUS_PILL_STYLES: Record<
   },
 };
 
-const AVATAR_GRADIENTS = [
-  "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-  "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-  "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-  "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-  "linear-gradient(135deg, #ec4899 0%, #be185d 100%)",
-  "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
-];
+// One restrained navy tone for every applicant initial (no decorative rainbow)
+const AVATAR_BACKGROUND = "linear-gradient(135deg, #1e3a8a 0%, #0b1f3a 100%)";
 
-function getAvatarGradient(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i);
-  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+// Phones get the card view by default; the wide table only suits larger screens
+const NARROW_QUERY = "(max-width: 768px)";
+
+function subscribeNarrow(callback: () => void) {
+  const mql = window.matchMedia(NARROW_QUERY);
+  mql.addEventListener("change", callback);
+  return () => mql.removeEventListener("change", callback);
+}
+
+function useIsNarrowScreen(): boolean {
+  return useSyncExternalStore(
+    subscribeNarrow,
+    () => window.matchMedia(NARROW_QUERY).matches,
+    () => false
+  );
 }
 
 function daysSince(date: Date): number {
@@ -79,9 +79,21 @@ export default function DashboardClient({
   officerName: string;
   officerDesignation: string;
 }) {
+  const { language, t, interpolate } = useLanguage();
+
+  const statusLabels: Record<ApplicationStatus, string> = {
+    PENDING: t.common.statusPending,
+    APPROVED: t.common.statusApproved,
+    REJECTED: t.common.statusRejected,
+    RETURNED: t.common.statusReturned,
+  };
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  // null = follow screen size until the officer picks a view explicitly
+  const [chosenViewMode, setViewMode] = useState<"table" | "grid" | null>(null);
+  const isNarrowScreen = useIsNarrowScreen();
+  const viewMode = chosenViewMode ?? (isNarrowScreen ? "grid" : "table");
   const [sortBy, setSortBy] = useState<"urgency" | "waiting" | "age" | "date">("urgency");
 
   // Summary counts
@@ -146,17 +158,25 @@ export default function DashboardClient({
       });
   }, [applications, statusFilter, searchTerm, sortBy]);
 
+  const displayOfficerName = officerName || (language === "hi" ? "अधिकारी" : "Officer");
+  const displayDesignation =
+    officerDesignation === "तहसीलदार" || !officerDesignation
+      ? t.common.tehsildar
+      : officerDesignation;
+
   return (
-    <div style={{ fontFamily: "var(--font-devanagari)" }}>
+    <div style={{ fontFamily: language === "hi" ? "var(--font-devanagari)" : "var(--font-sans)" }}>
       {/* ─── Hero Briefing Banner ─────────────────────────────────────────── */}
       <div className="hero-banner">
         <div className="hero-left">
           <div className="hero-salutation">
             <span className="hero-badge">
-              <GovEmblem size={22} style={{ marginRight: "6px", flexShrink: 0 }} /> हरियाणा समाज कल्याण पोर्टल
+              <GovEmblem size={22} style={{ marginRight: "6px", flexShrink: 0 }} />{" "}
+              {t.dashboard.portalBadge}
             </span>
             <span className="hero-date">
-              📅 {new Date().toLocaleDateString("hi-IN", {
+              <Icon name="calendar" size={14} />{" "}
+              {new Date().toLocaleDateString(language === "hi" ? "hi-IN" : "en-US", {
                 weekday: "long",
                 year: "numeric",
                 month: "long",
@@ -165,13 +185,27 @@ export default function DashboardClient({
             </span>
           </div>
           <h1 className="hero-title">
-            सुप्रभात, <span className="officer-highlight">{officerName} जी</span>
-            <span className="officer-role-tag">{officerDesignation}</span>
+            {t.dashboard.greetingMorning},{" "}
+            <span className="officer-highlight">
+              {displayOfficerName}
+              {language === "hi" ? " जी" : ""}
+            </span>
+            <span className="officer-role-tag">{displayDesignation}</span>
           </h1>
           <p className="hero-subtitle">
-            आपके कार्यक्षेत्र में कुल <strong className="stat-pill-white">{total} आवेदन</strong> पंजीकृत हैं — जिनमें से{" "}
-            <strong className="stat-pill-amber">{pending} लंबित</strong> हैं एवं{" "}
-            <strong className="stat-pill-red">{slaBreached} आवेदनों की 30-दिवसीय SLA सीमा समाप्त</strong> हो चुकी है।
+            {language === "hi" ? (
+              <>
+                आपके कार्यक्षेत्र में कुल <strong className="stat-pill-white">{total} आवेदन</strong> पंजीकृत हैं — जिनमें से{" "}
+                <strong className="stat-pill-amber">{pending} लंबित</strong> हैं एवं{" "}
+                <strong className="stat-pill-red">{slaBreached} आवेदनों की 30-दिवसीय SLA सीमा समाप्त</strong> हो चुकी है।
+              </>
+            ) : (
+              <>
+                There are <strong className="stat-pill-white">{total} registered applications</strong> in your area —{" "}
+                <strong className="stat-pill-amber">{pending} pending review</strong> and{" "}
+                <strong className="stat-pill-red">{slaBreached} with 30-day statutory SLA deadline breached</strong>.
+              </>
+            )}
           </p>
         </div>
 
@@ -179,19 +213,19 @@ export default function DashboardClient({
           <div className="hero-sla-alert">
             <div className="sla-alert-beacon">
               <span className="beacon-ring"></span>
-              <span className="beacon-core">🚨</span>
+              <span className="beacon-core"><Icon name="alertOctagon" size={22} /></span>
             </div>
             <div className="sla-alert-content">
-              <div className="sla-alert-title">SLA अतिदेय चेतावनी (RTSA 2014)</div>
+              <div className="sla-alert-title">{t.dashboard.slaAlertTitle}</div>
               <div className="sla-alert-desc">
-                {slaBreached} आवेदन सेवा अधिकार सीमा पार कर चुके हैं। तुरंत समीक्षा करें।
+                {interpolate(t.dashboard.slaAlertDesc, { count: slaBreached })}
               </div>
             </div>
             <button
               onClick={() => setStatusFilter("SLA_BREACH")}
               className="btn-filter-sla"
             >
-              समीक्षा सूची ({slaBreached}) →
+              {interpolate(t.dashboard.slaReviewBtn, { count: slaBreached })}
             </button>
           </div>
         )}
@@ -200,30 +234,32 @@ export default function DashboardClient({
       {/* ─── Modern 6-Column KPI Grid ─────────────────────────────────────── */}
       <div className="kpi-grid">
         <KpiCard
-          label="कुल पंजीकृत"
+          label={t.dashboard.kpiTotalLabel}
           value={total}
-          icon="📋"
-          subtext="समस्त आवेदन"
-          color="#1e3a8a"
-          accentColor="#3b82f6"
+          icon={<Icon name="clipboardList" size={18} />}
+          subtext={t.dashboard.kpiTotalSub}
+          color="#0b1f3a"
+          accentColor="#1e3a8a"
           active={statusFilter === "ALL"}
           onClick={() => setStatusFilter("ALL")}
         />
         <KpiCard
-          label="लंबित समीक्षा"
+          label={t.dashboard.kpiPendingLabel}
           value={pending}
-          icon="⏳"
-          subtext={`${total > 0 ? Math.round((pending / total) * 100) : 0}% अनिस्तारित`}
-          color="#c2410c"
-          accentColor="#f97316"
+          icon={<Icon name="clock" size={18} />}
+          subtext={interpolate(t.dashboard.kpiPendingSub, {
+            percent: total > 0 ? Math.round((pending / total) * 100) : 0,
+          })}
+          color="#1d4ed8"
+          accentColor="#2563eb"
           active={statusFilter === "PENDING"}
           onClick={() => setStatusFilter("PENDING")}
         />
         <KpiCard
-          label="SLA उल्लंघन"
+          label={t.dashboard.kpiSlaLabel}
           value={slaBreached}
-          icon="🚨"
-          subtext="> 30 दिन लंबित"
+          icon={<Icon name="alertOctagon" size={18} />}
+          subtext={t.dashboard.kpiSlaSub}
           color="#b91c1c"
           accentColor="#ef4444"
           active={statusFilter === "SLA_BREACH"}
@@ -231,32 +267,32 @@ export default function DashboardClient({
           glowRed={slaBreached > 0}
         />
         <KpiCard
-          label="उच्च प्राथमिकता"
+          label={t.dashboard.kpiHighLabel}
           value={highPriority}
-          icon="⚠️"
-          subtext="फ्लैग किए गए"
+          icon={<Icon name="flag" size={18} />}
+          subtext={t.dashboard.kpiHighSub}
           color="#b45309"
           accentColor="#f59e0b"
           active={statusFilter === "HIGH_PRIORITY"}
           onClick={() => setStatusFilter("HIGH_PRIORITY")}
         />
         <KpiCard
-          label="स्वीकृत पेंशन"
+          label={t.dashboard.kpiApprovedLabel}
           value={approved}
-          icon="✅"
-          subtext="सत्यापित व पात्र"
+          icon={<Icon name="checkCircle" size={18} />}
+          subtext={t.dashboard.kpiApprovedSub}
           color="#047857"
           accentColor="#10b981"
           active={statusFilter === "APPROVED"}
           onClick={() => setStatusFilter("APPROVED")}
         />
         <KpiCard
-          label="अस्वीकृत / वापस"
+          label={t.dashboard.kpiRejectedLabel}
           value={rejected + returned}
-          icon="↩️"
-          subtext={`${rejected} अस्वीकृत • ${returned} वापस`}
-          color="#6b21a8"
-          accentColor="#a855f7"
+          icon={<Icon name="rotateCcw" size={18} />}
+          subtext={interpolate(t.dashboard.kpiRejectedSub, { rejected, returned })}
+          color="#334155"
+          accentColor="#64748b"
           active={statusFilter === "REJECTED"}
           onClick={() => setStatusFilter("REJECTED")}
         />
@@ -266,10 +302,10 @@ export default function DashboardClient({
       <div className="controls-panel">
         <div className="controls-top-row">
           <div className="search-box-wrapper">
-            <span className="search-icon">🔍</span>
+            <span className="search-icon"><Icon name="search" size={17} /></span>
             <input
               type="text"
-              placeholder="आवेदक का नाम, पिता/पति का नाम, गाँव, तहसील या आधार संख्या से खोजें…"
+              placeholder={t.dashboard.searchPlaceholder}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
@@ -278,9 +314,10 @@ export default function DashboardClient({
               <button
                 onClick={() => setSearchTerm("")}
                 className="search-clear-btn"
-                title="खोज साफ़ करें"
+                title={t.dashboard.searchClear}
+                aria-label={t.dashboard.searchClear}
               >
-                ✕
+                <Icon name="x" size={14} />
               </button>
             ) : (
               <span className="search-shortcut">⌘K</span>
@@ -290,16 +327,16 @@ export default function DashboardClient({
           <div className="view-and-sort-controls">
             {/* Sort Dropdown */}
             <div className="sort-select-wrapper">
-              <span className="sort-label">क्रम:</span>
+              <span className="sort-label">{t.dashboard.sortLabel}</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                 className="sort-select"
               >
-                <option value="urgency">⚡ प्राथमिकता स्कोर (तत्कालता)</option>
-                <option value="waiting">⏱️ प्रतीक्षा काल (सर्वाधिक दिन)</option>
-                <option value="age">👴 आवेदक की आयु (वरिष्ठता)</option>
-                <option value="date">📅 आवेदन की नई तिथि</option>
+                <option value="urgency">{t.dashboard.sortUrgency}</option>
+                <option value="waiting">{t.dashboard.sortWaiting}</option>
+                <option value="age">{t.dashboard.sortAge}</option>
+                <option value="date">{t.dashboard.sortDate}</option>
               </select>
             </div>
 
@@ -309,17 +346,17 @@ export default function DashboardClient({
                 type="button"
                 onClick={() => setViewMode("table")}
                 className={`view-toggle-btn ${viewMode === "table" ? "toggle-active" : ""}`}
-                title="तालिका दृश्य (Table View)"
+                title={language === "hi" ? "तालिका दृश्य (Table View)" : "Table View"}
               >
-                <span>📄</span> तालिका
+                <Icon name="table" size={15} /> {t.dashboard.viewTable}
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("grid")}
                 className={`view-toggle-btn ${viewMode === "grid" ? "toggle-active" : ""}`}
-                title="कार्ड्स दृश्य (Cards View)"
+                title={language === "hi" ? "कार्ड्स दृश्य (Cards View)" : "Cards View"}
               >
-                <span>🗂️</span> कार्ड्स
+                <Icon name="grid" size={15} /> {t.dashboard.viewCards}
               </button>
             </div>
           </div>
@@ -331,38 +368,38 @@ export default function DashboardClient({
             className={`filter-chip ${statusFilter === "ALL" ? "chip-active" : ""}`}
             onClick={() => setStatusFilter("ALL")}
           >
-            सभी आवेदन <span className="chip-count">{total}</span>
+            {t.dashboard.filterAll} <span className="chip-count">{total}</span>
           </button>
           <button
             className={`filter-chip chip-sla ${statusFilter === "SLA_BREACH" ? "chip-active-sla" : ""}`}
             onClick={() => setStatusFilter("SLA_BREACH")}
           >
             <span className="sla-dot pulse-dot"></span>
-            SLA उल्लंघन <span className="chip-count-danger">{slaBreached}</span>
+            {t.dashboard.filterSla} <span className="chip-count-danger">{slaBreached}</span>
           </button>
           <button
             className={`filter-chip ${statusFilter === "HIGH_PRIORITY" ? "chip-active" : ""}`}
             onClick={() => setStatusFilter("HIGH_PRIORITY")}
           >
-            ⚠️ उच्च प्राथमिकता <span className="chip-count">{highPriority}</span>
+            {t.dashboard.filterHigh} <span className="chip-count">{highPriority}</span>
           </button>
           <button
             className={`filter-chip ${statusFilter === "PENDING" ? "chip-active" : ""}`}
             onClick={() => setStatusFilter("PENDING")}
           >
-            ⏳ लंबित समीक्षा <span className="chip-count">{pending}</span>
+            {t.dashboard.filterPending} <span className="chip-count">{pending}</span>
           </button>
           <button
             className={`filter-chip ${statusFilter === "APPROVED" ? "chip-active" : ""}`}
             onClick={() => setStatusFilter("APPROVED")}
           >
-            ✅ स्वीकृत <span className="chip-count">{approved}</span>
+            {t.dashboard.filterApproved} <span className="chip-count">{approved}</span>
           </button>
           <button
             className={`filter-chip ${statusFilter === "REJECTED" ? "chip-active" : ""}`}
             onClick={() => setStatusFilter("REJECTED")}
           >
-            ❌ अस्वीकृत / वापस <span className="chip-count">{rejected + returned}</span>
+            {t.dashboard.filterRejected} <span className="chip-count">{rejected + returned}</span>
           </button>
         </div>
       </div>
@@ -371,17 +408,22 @@ export default function DashboardClient({
       <div className="results-meta-bar">
         <div className="results-meta-left">
           <span className="meta-results-count">
-            प्रदर्शित: <strong>{filteredApps.length}</strong> / कुल {total} आवेदन
+            {interpolate(t.dashboard.resultsCount, { shown: filteredApps.length, total })}
           </span>
           {statusFilter !== "ALL" && (
             <span className="active-filter-badge">
-              फ़िल्टर: {statusFilter === "SLA_BREACH" ? "SLA अतिदेय" : statusFilter === "HIGH_PRIORITY" ? "उच्च प्राथमिकता" : STATUS_LABELS[statusFilter as ApplicationStatus] || statusFilter}
+              {t.dashboard.filterTagPrefix}{" "}
+              {statusFilter === "SLA_BREACH"
+                ? t.dashboard.filterSla
+                : statusFilter === "HIGH_PRIORITY"
+                ? t.dashboard.filterHigh
+                : statusLabels[statusFilter as ApplicationStatus] || statusFilter}
               <button onClick={() => setStatusFilter("ALL")} className="tag-remove">×</button>
             </span>
           )}
           {searchTerm && (
             <span className="active-filter-badge">
-              खोज: &quot;{searchTerm}&quot;
+              {t.dashboard.searchTagPrefix} &quot;{searchTerm}&quot;
               <button onClick={() => setSearchTerm("")} className="tag-remove">×</button>
             </span>
           )}
@@ -391,11 +433,9 @@ export default function DashboardClient({
       {/* ─── Empty Results State ──────────────────────────────────────────── */}
       {filteredApps.length === 0 ? (
         <div className="empty-results-card executive-card">
-          <div className="empty-icon">🔍</div>
-          <h3 className="empty-title">कोई आवेदन नहीं मिला</h3>
-          <p className="empty-desc">
-            आपके द्वारा चुने गए फ़िल्टर या खोज शब्द के अनुरूप कोई रिकॉर्ड उपलब्ध नहीं है।
-          </p>
+          <div className="empty-icon"><Icon name="search" size={40} strokeWidth={1.5} /></div>
+          <h3 className="empty-title">{t.dashboard.emptyTitle}</h3>
+          <p className="empty-desc">{t.dashboard.emptyDesc}</p>
           <button
             onClick={() => {
               setSearchTerm("");
@@ -403,7 +443,7 @@ export default function DashboardClient({
             }}
             className="btn-reset-filters"
           >
-            फ़िल्टर रीसेट करें
+            {t.dashboard.resetFilters}
           </button>
         </div>
       ) : viewMode === "table" ? (
@@ -412,15 +452,15 @@ export default function DashboardClient({
           <table className="modern-table">
             <thead>
               <tr className="table-head-row">
-                <th style={{ width: "52px", textAlign: "center" }}>#</th>
-                <th>आवेदक विवरण</th>
-                <th>गाँव / तहसील</th>
-                <th style={{ textAlign: "center" }}>आयु (पात्रता)</th>
-                <th>वार्षिक आय</th>
-                <th style={{ textAlign: "center" }}>प्रतीक्षा काल / SLA</th>
-                <th style={{ textAlign: "center" }}>स्थिति</th>
-                <th style={{ textAlign: "center" }}>प्राथमिकता</th>
-                <th style={{ textAlign: "center", width: "145px" }}>कार्यवाही</th>
+                <th style={{ width: "52px", textAlign: "center" }}>{t.dashboard.thIndex}</th>
+                <th>{t.dashboard.thApplicant}</th>
+                <th>{t.dashboard.thLocation}</th>
+                <th style={{ textAlign: "center" }}>{t.dashboard.thAge}</th>
+                <th>{t.dashboard.thIncome}</th>
+                <th style={{ textAlign: "center" }}>{t.dashboard.thWaiting}</th>
+                <th style={{ textAlign: "center" }}>{t.dashboard.thStatus}</th>
+                <th style={{ textAlign: "center" }}>{t.dashboard.thPriority}</th>
+                <th style={{ textAlign: "center", width: "145px" }}>{t.dashboard.thAction}</th>
               </tr>
             </thead>
             <tbody>
@@ -460,7 +500,7 @@ export default function DashboardClient({
                       <div className="applicant-flex">
                         <div
                           className="applicant-avatar"
-                          style={{ background: getAvatarGradient(app.applicantName) }}
+                          style={{ background: AVATAR_BACKGROUND }}
                         >
                           {app.applicantName[0]}
                         </div>
@@ -469,15 +509,15 @@ export default function DashboardClient({
                             <span className="applicant-name">{app.applicantName}</span>
                             {app.flagNote && (
                               <span className="applicant-flag-chip" title={app.flagNote}>
-                                ⚠️
+                                <Icon name="info" size={13} label={app.flagNote} />
                               </span>
                             )}
                           </div>
                           <div className="applicant-relation">
-                            आत्मज/पत्नी: {app.fatherHusbandName}
+                            {t.dashboard.relationPrefix} {app.fatherHusbandName}
                           </div>
                           <div className="applicant-aadhaar-pill">
-                            🆔 {app.aadhaarMasked}
+                            <Icon name="idCard" size={13} /> {app.aadhaarMasked}
                           </div>
                         </div>
                       </div>
@@ -492,23 +532,33 @@ export default function DashboardClient({
                     {/* Age with Qualification Tag */}
                     <td className="cell-age" style={{ textAlign: "center" }}>
                       <span className={`age-pill ${age >= 60 ? "age-eligible" : "age-ineligible"}`}>
-                        {age} वर्ष
+                        {age} {t.common.years}
                       </span>
                       <div className="age-subtext">
-                        {age >= 60 ? "✓ 60+ पूर्ण" : "✕ अपात्र"}
+                        {age >= 60
+                          ? language === "hi"
+                            ? "✓ 60+ पूर्ण"
+                            : "✓ 60+ Eligible"
+                          : language === "hi"
+                          ? "✕ अपात्र"
+                          : "✕ Underage"}
                       </div>
                     </td>
 
                     {/* Annual Income */}
                     <td className="cell-income">
                       <div className="income-amount">
-                        ₹{app.annualIncome.toLocaleString("hi-IN")}
+                        ₹{app.annualIncome.toLocaleString(language === "hi" ? "hi-IN" : "en-IN")}
                       </div>
                       <div className="income-ceiling">
                         {app.annualIncome <= 200000 ? (
-                          <span className="income-pass">✓ ₹2L सीमा में</span>
+                          <span className="income-pass">
+                            {language === "hi" ? "✓ ₹2L सीमा में" : "✓ Within ₹2L"}
+                          </span>
                         ) : (
-                          <span className="income-fail">⚠️ सीमा से अधिक</span>
+                          <span className="income-fail">
+                            <Icon name="alertTriangle" size={12} /> {language === "hi" ? "सीमा से अधिक" : "Above limit"}
+                          </span>
                         )}
                       </div>
                     </td>
@@ -517,13 +567,20 @@ export default function DashboardClient({
                     <td className="cell-sla" style={{ textAlign: "center" }}>
                       <div className="sla-days-wrap">
                         <span className={`sla-days ${sla ? "sla-text-red" : days > 15 ? "sla-text-amber" : "sla-text-normal"}`}>
-                          {app.status === "PENDING" ? `${days} दिन` : "निस्तारित"}
+                          {app.status === "PENDING"
+                            ? interpolate(t.dashboard.daysPending, { days })
+                            : language === "hi"
+                            ? "निस्तारित"
+                            : "Resolved"}
                         </span>
-                        {sla && <span className="sla-badge-pill">अतिदेय</span>}
+                        {sla && <span className="sla-badge-pill">{t.dashboard.slaOverdue}</span>}
                       </div>
 
                       {app.status === "PENDING" && (
-                        <div className="sla-progress-track" title={`${days}/${SLA_BREACH_DAYS} दिन (${slaPercent}%)`}>
+                        <div
+                          className="sla-progress-track"
+                          title={`${days}/${SLA_BREACH_DAYS} ${t.common.days} (${slaPercent}%)`}
+                        >
                           <div
                             className={`sla-progress-fill ${sla ? "fill-red" : days > 15 ? "fill-amber" : "fill-blue"}`}
                             style={{ width: `${slaPercent}%` }}
@@ -546,7 +603,7 @@ export default function DashboardClient({
                           className="status-dot"
                           style={{ background: statusStyle.dot }}
                         />
-                        {STATUS_LABELS[app.status]}
+                        {statusLabels[app.status]}
                       </span>
                     </td>
 
@@ -554,11 +611,11 @@ export default function DashboardClient({
                     <td style={{ textAlign: "center" }}>
                       {app.priority === "HIGH" && app.status === "PENDING" ? (
                         <span className="priority-high-badge">
-                          ⚠️ उच्च
+                          <Icon name="flag" size={12} /> {language === "hi" ? "उच्च" : "High"}
                         </span>
                       ) : (
                         <span className="priority-normal-badge">
-                          सामान्य
+                          {language === "hi" ? "सामान्य" : "Normal"}
                         </span>
                       )}
                     </td>
@@ -569,8 +626,8 @@ export default function DashboardClient({
                         href={`/applications/${app.id}`}
                         className="btn-action-review"
                       >
-                        <span>समीक्षा करें</span>
-                        <span className="btn-arrow">→</span>
+                        <span>{app.status === "PENDING" ? t.dashboard.btnReview : t.dashboard.btnReviewed}</span>
+                        {app.status === "PENDING" && <span className="btn-arrow">→</span>}
                       </Link>
                     </td>
                   </tr>
@@ -597,8 +654,12 @@ export default function DashboardClient({
                 <div className="card-top-row">
                   <span className="card-index-pill">#{idx + 1}</span>
                   <div className="card-badges-flex">
-                    {sla && <span className="sla-badge-pill">🚨 SLA अतिदेय</span>}
-                    {isHigh && <span className="priority-high-badge">⚠️ उच्च</span>}
+                    {sla && <span className="sla-badge-pill"><Icon name="alertOctagon" size={12} /> {t.dashboard.slaOverdue}</span>}
+                    {isHigh && (
+                      <span className="priority-high-badge">
+                        <Icon name="flag" size={12} /> {language === "hi" ? "उच्च" : "High"}
+                      </span>
+                    )}
                     <span
                       className="status-pill-badge"
                       style={{
@@ -608,7 +669,7 @@ export default function DashboardClient({
                       }}
                     >
                       <span className="status-dot" style={{ background: statusStyle.dot }} />
-                      {STATUS_LABELS[app.status]}
+                      {statusLabels[app.status]}
                     </span>
                   </div>
                 </div>
@@ -616,56 +677,56 @@ export default function DashboardClient({
                 <div className="card-applicant-row">
                   <div
                     className="applicant-avatar-lg"
-                    style={{ background: getAvatarGradient(app.applicantName) }}
+                    style={{ background: AVATAR_BACKGROUND }}
                   >
                     {app.applicantName[0]}
                   </div>
                   <div>
                     <h3 className="card-applicant-name">{app.applicantName}</h3>
-                    <p className="card-applicant-sub">आत्मज/पत्नी: {app.fatherHusbandName}</p>
-                    <p className="card-applicant-aadhaar">🆔 आधार: {app.aadhaarMasked}</p>
+                    <p className="card-applicant-sub">{t.dashboard.relationPrefix} {app.fatherHusbandName}</p>
+                    <p className="card-applicant-aadhaar"><Icon name="idCard" size={13} /> {app.aadhaarMasked}</p>
                   </div>
                 </div>
 
                 <div className="card-meta-grid">
                   <div className="meta-box">
-                    <span className="meta-label">आयु (पात्रता)</span>
+                    <span className="meta-label">{t.dashboard.thAge}</span>
                     <span className={`meta-val ${age >= 60 ? "age-eligible-text" : "age-ineligible-text"}`}>
-                      {age} वर्ष {age >= 60 ? "✓" : "✕"}
+                      {age} {t.common.years} {age >= 60 ? "✓" : "✕"}
                     </span>
                   </div>
                   <div className="meta-box">
-                    <span className="meta-label">वार्षिक आय</span>
-                    <span className="meta-val">₹{app.annualIncome.toLocaleString("hi-IN")}</span>
+                    <span className="meta-label">{t.dashboard.thIncome}</span>
+                    <span className="meta-val">₹{app.annualIncome.toLocaleString(language === "hi" ? "hi-IN" : "en-IN")}</span>
                   </div>
                   <div className="meta-box">
-                    <span className="meta-label">गाँव / तहसील</span>
+                    <span className="meta-label">{t.dashboard.thLocation}</span>
                     <span className="meta-val">{app.village}, {app.tehsil}</span>
                   </div>
                   <div className="meta-box">
-                    <span className="meta-label">प्रतीक्षा काल</span>
+                    <span className="meta-label">{language === "hi" ? "प्रतीक्षा काल" : "Waiting Time"}</span>
                     <span className={`meta-val ${sla ? "text-red" : ""}`}>
-                      {app.status === "PENDING" ? `${days} दिन` : "निस्तारित"}
+                      {app.status === "PENDING" ? interpolate(t.dashboard.daysPending, { days }) : (language === "hi" ? "निस्तारित" : "Resolved")}
                     </span>
                   </div>
                 </div>
 
                 {app.flagNote && (
                   <div className="card-flag-note">
-                    ⚠️ {app.flagNote}
+                    <Icon name="flag" size={14} /> {app.flagNote}
                   </div>
                 )}
 
                 <div className="card-footer-row">
                   <span className="docs-count">
-                    📂 {app.documentsSubmitted.length}/6 दस्तावेज़
+                    <Icon name="folder" size={14} /> {app.documentsSubmitted.length}/6 {language === "hi" ? "दस्तावेज़" : "Docs"}
                   </span>
                   <Link
                     href={`/applications/${app.id}`}
                     className="btn-action-review"
                   >
-                    <span>समीक्षा करें</span>
-                    <span className="btn-arrow">→</span>
+                    <span>{app.status === "PENDING" ? t.dashboard.btnReview : t.dashboard.btnReviewed}</span>
+                    {app.status === "PENDING" && <span className="btn-arrow">→</span>}
                   </Link>
                 </div>
               </div>
@@ -897,7 +958,24 @@ export default function DashboardClient({
 
         @media (max-width: 480px) {
           .kpi-grid {
-            grid-template-columns: 1fr;
+            gap: 0.75rem;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .hero-banner {
+            padding: 1.5rem 1.25rem;
+            border-radius: 16px;
+          }
+
+          .hero-sla-alert {
+            max-width: 100%;
+            width: 100%;
+            flex-wrap: wrap;
+          }
+
+          .sla-alert-content {
+            flex: 1 1 180px;
           }
         }
 
@@ -1236,7 +1314,7 @@ export default function DashboardClient({
         .table-row-card td:first-child {
           border-top-left-radius: 14px;
           border-bottom-left-radius: 14px;
-          border-left: 5px solid #3b82f6; /* Blue default stripe */
+          border-left: 4px solid #cbd5e1; /* Neutral default stripe */
         }
 
         .table-row-card td:last-child {
@@ -1246,55 +1324,23 @@ export default function DashboardClient({
         }
 
         /* SLA Breached Row */
-        .row-sla-breached td {
-          background: #fffcfc !important;
-          border-top-color: #fecaca;
-          border-bottom-color: #fecaca;
-        }
-
-        .row-sla-breached:hover td {
-          background: #fff5f5 !important;
-          border-top-color: #fca5a5;
-          border-bottom-color: #fca5a5;
-        }
-
         .row-sla-breached td:first-child {
-          border-left: 5px solid #ef4444 !important;
-        }
-
-        .row-sla-breached td:last-child {
-          border-right: 1px solid #fecaca;
+          border-left: 4px solid #dc2626 !important;
         }
 
         /* High Priority Row */
-        .row-high-priority td {
-          background: #fffdfa !important;
-          border-top-color: #fde68a;
-          border-bottom-color: #fde68a;
-        }
-
-        .row-high-priority:hover td {
-          background: #fffbeb !important;
-          border-top-color: #fcd34d;
-          border-bottom-color: #fcd34d;
-        }
-
         .row-high-priority td:first-child {
-          border-left: 5px solid #f59e0b !important;
-        }
-
-        .row-high-priority td:last-child {
-          border-right: 1px solid #fde68a;
+          border-left: 4px solid #d97706 !important;
         }
 
         /* Approved Row */
         .row-approved td:first-child {
-          border-left: 5px solid #10b981 !important;
+          border-left: 4px solid #059669 !important;
         }
 
         /* Rejected Row */
         .row-rejected td:first-child {
-          border-left: 5px solid #94a3b8 !important;
+          border-left: 4px solid #94a3b8 !important;
         }
 
         /* Index badge */
@@ -1766,7 +1812,7 @@ function KpiCard({
 }: {
   label: string;
   value: number;
-  icon: string;
+  icon: React.ReactNode;
   subtext?: string;
   color: string;
   accentColor: string;
@@ -1774,6 +1820,8 @@ function KpiCard({
   onClick?: () => void;
   glowRed?: boolean;
 }) {
+  const { language } = useLanguage();
+
   return (
     <button
       type="button"
@@ -1827,7 +1875,7 @@ function KpiCard({
               borderRadius: "999px",
             }}
           >
-            सक्रिय
+            {language === "hi" ? "सक्रिय" : "Active"}
           </span>
         )}
       </div>

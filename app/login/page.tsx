@@ -4,9 +4,13 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import GovEmblem from "@/components/GovEmblem";
+import { useLanguage, LanguageSwitcher } from "@/lib/i18n/LanguageContext";
+import Icon from "@/components/Icon";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { language, t } = useLanguage();
+
   const [email, setEmail] = useState("officer@demo.gov.in");
   const [password, setPassword] = useState("demo1234");
   const [error, setError] = useState("");
@@ -28,7 +32,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (result?.error) {
-      setError("ईमेल या पासवर्ड गलत है। कृपया पुनः प्रयास करें।");
+      setError(t.login.errorInvalid);
     } else {
       router.push("/dashboard");
       router.refresh();
@@ -44,7 +48,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-root">
+    <div
+      className="login-root"
+      style={{
+        fontFamily: language === "hi" ? "var(--font-devanagari)" : "var(--font-sans)",
+      }}
+    >
       {/* Top Subtle Tricolor Bar */}
       <div className="gov-ribbon fixed top-0 left-0 right-0 z-50" />
 
@@ -53,53 +62,47 @@ export default function LoginPage() {
         <div className="login-left-content">
           {/* Official Emblem & Department Banner */}
           <div className="emblem-wrapper">
-            <GovEmblem size={64} style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))", flexShrink: 0 }} />
+            <GovEmblem
+              size={64}
+              style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))", flexShrink: 0 }}
+            />
             <div>
-              <div className="dept-tag">हरियाणा सरकार • समाज कल्याण विभाग</div>
-              <div className="state-tag">GOVERNMENT OF HARYANA</div>
+              <div className="dept-tag">{t.login.deptBanner}</div>
+              <div className="state-tag">{t.login.stateTitle}</div>
             </div>
           </div>
 
           <div className="hero-text-block">
             <h1 className="hero-main-title">
-              वृद्धावस्था सम्मान भत्ता
-              <span className="hero-title-highlight"> समीक्षा एवं निर्णय पोर्टल</span>
+              {t.login.heroMainTitle}
+              <span className="hero-title-highlight">{t.login.heroTitleHighlight}</span>
             </h1>
-            <p className="hero-subtitle">
-              हरियाणा वृद्धा पेंशन योजना के अंतर्गत आवेदनों के त्वरित, पारदर्शी एवं
-              AI-सहायक सत्यापन हेतु अधिकृत तहसील/ब्लॉक अधिकारी मंच।
-            </p>
+            <p className="hero-subtitle">{t.login.heroSubtitle}</p>
           </div>
 
           {/* Feature Highlights Bento Cards */}
           <div className="features-grid">
             <div className="feature-card">
-              <div className="feature-icon ai-glow">🤖</div>
+              <div className="feature-icon ai-glow"><Icon name="sparkles" size={20} /></div>
               <div>
-                <div className="feature-title">Google Gemini AI सह-पायलट</div>
-                <div className="feature-desc">
-                  पात्रता नियम, आयु (60+ वर्ष) व बैंक खाते के नाम की विसंगति का स्वतः विश्लेषण
-                </div>
+                <div className="feature-title">{t.login.featureAiTitle}</div>
+                <div className="feature-desc">{t.login.featureAiDesc}</div>
               </div>
             </div>
 
             <div className="feature-card">
-              <div className="feature-icon sla-glow">⏱️</div>
+              <div className="feature-icon sla-glow"><Icon name="clock" size={20} /></div>
               <div>
-                <div className="feature-title">SLA समय-सीमा ट्रैकिंग (30 दिन)</div>
-                <div className="feature-desc">
-                  सेवा का अधिकार अधिनियम के अंतर्गत प्राथमिकता क्रमबद्ध कार्यप्रवाह
-                </div>
+                <div className="feature-title">{t.login.featureSlaTitle}</div>
+                <div className="feature-desc">{t.login.featureSlaDesc}</div>
               </div>
             </div>
 
             <div className="feature-card">
-              <div className="feature-icon audit-glow">🛡️</div>
+              <div className="feature-icon audit-glow"><Icon name="shieldCheck" size={20} /></div>
               <div>
-                <div className="feature-title">अपरिवर्तनीय डिजिटल ऑडिट ट्रेल</div>
-                <div className="feature-desc">
-                  तहसीलदार व नोडल अधिकारी के प्रत्येक अनुमोदन व अस्वीकृति का समय-अंकित रिकॉर्ड
-                </div>
+                <div className="feature-title">{t.login.featureAuditTitle}</div>
+                <div className="feature-desc">{t.login.featureAuditDesc}</div>
               </div>
             </div>
           </div>
@@ -108,9 +111,9 @@ export default function LoginPage() {
           <div className="system-status-strip">
             <div className="status-pill">
               <span className="live-dot pulse-dot"></span>
-              <span>Neon PostgreSQL Cloud • 20 लाइव आवेदन सुरक्षित</span>
+              <span>{t.login.liveCloudTag}</span>
             </div>
-            <div className="status-badge-hry">डिजिटल हरियाणा मिशन 2026</div>
+            <div className="status-badge-hry">{t.login.missionTag}</div>
           </div>
         </div>
       </div>
@@ -118,14 +121,21 @@ export default function LoginPage() {
       {/* Right Login Station */}
       <div className="login-right">
         <div className="login-box-container">
+          {/* Top Switcher Bar */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "-0.5rem" }}>
+            <LanguageSwitcher variant="login" />
+          </div>
+
           {/* Quick Demo Autofill Banner */}
           <div className="demo-callout-card">
             <div className="demo-callout-header">
-              <div className="demo-icon">⚡</div>
+              <div className="demo-icon"><Icon name="zap" size={18} /></div>
               <div style={{ flex: 1 }}>
-                <div className="demo-title">मूल्यांकनकर्ता / समीक्षक हेतु त्वरित लॉगिन</div>
+                <div className="demo-title">{t.login.demoCalloutTitle}</div>
                 <div className="demo-sub">
-                  अधिकारी क्रेडेंशियल्स: <code className="demo-code">officer@demo.gov.in</code> / <code className="demo-code">demo1234</code>
+                  {t.login.demoCalloutSub}{" "}
+                  <code className="demo-code">officer@demo.gov.in</code> /{" "}
+                  <code className="demo-code">demo1234</code>
                 </div>
               </div>
             </div>
@@ -134,42 +144,40 @@ export default function LoginPage() {
               onClick={handleAutoFill}
               className={`btn-autofill ${justAutofilled ? "autofill-active" : ""}`}
             >
-              {justAutofilled ? "✓ क्रेडेंशियल्स भरे गए!" : "⚡ 1-क्लिक ऑटोफिल (Auto-Fill Demo)"}
+              {justAutofilled ? t.login.demoAutofilledBtn : t.login.demoAutofillBtn}
             </button>
           </div>
 
           <form className="login-card" onSubmit={handleSubmit}>
             <div className="login-card-header">
               <div className="card-badge">
-                <span className="lock-icon">🔐</span>
-                <span>अधिकारी अधिकृत प्रवेश</span>
+                <span className="lock-icon"><Icon name="lock" size={16} /></span>
+                <span>{t.login.cardBadge}</span>
               </div>
-              <h2 className="login-card-title">पोर्टल में प्रवेश करें</h2>
-              <p className="login-card-desc">
-                पेंशन समीक्षा प्रणाली तक पहुँचने के लिए अपनी शासकीय साख दर्ज करें
-              </p>
+              <h2 className="login-card-title">{t.login.cardTitle}</h2>
+              <p className="login-card-desc">{t.login.cardDesc}</p>
             </div>
 
             {error && (
               <div className="login-error-alert" role="alert">
-                <span className="error-icon">⚠️</span>
+                <span className="error-icon"><Icon name="alertTriangle" size={16} /></span>
                 <span>{error}</span>
               </div>
             )}
 
             <div className="form-group">
               <label htmlFor="email" className="form-label">
-                शासकीय ईमेल पता
+                {t.login.emailLabel}
               </label>
               <div className="input-with-icon">
-                <span className="field-icon">✉️</span>
+                <span className="field-icon"><Icon name="mail" size={17} /></span>
                 <input
                   id="email"
                   type="email"
                   className="form-input"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="officer@demo.gov.in"
+                  placeholder={t.login.emailPlaceholder}
                   required
                   autoComplete="email"
                 />
@@ -178,17 +186,17 @@ export default function LoginPage() {
 
             <div className="form-group">
               <label htmlFor="password" className="form-label">
-                पासवर्ड (Secret Key)
+                {t.login.passwordLabel}
               </label>
               <div className="input-with-icon">
-                <span className="field-icon">🔑</span>
+                <span className="field-icon"><Icon name="key" size={17} /></span>
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   className="form-input"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={t.login.passwordPlaceholder}
                   required
                   autoComplete="current-password"
                 />
@@ -196,40 +204,34 @@ export default function LoginPage() {
                   type="button"
                   className="btn-toggle-pwd"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "पासवर्ड छिपाएं" : "पासवर्ड दिखाएं"}
-                  title={showPassword ? "पासवर्ड छिपाएं" : "पासवर्ड दिखाएं"}
+                  aria-label={showPassword ? t.login.hidePassword : t.login.showPassword}
+                  title={showPassword ? t.login.hidePassword : t.login.showPassword}
                 >
-                  {showPassword ? "👁️" : "👁️‍🗨️"}
+                  <Icon name={showPassword ? "eyeOff" : "eye"} size={17} />
                 </button>
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="btn-submit"
-              disabled={loading}
-            >
+            <button type="submit" className="btn-submit" disabled={loading}>
               {loading ? (
                 <span className="loading-spinner-wrap">
                   <span className="spinner-border"></span>
-                  प्रमाणीकरण हो रहा है…
+                  {t.login.authenticating}
                 </span>
               ) : (
-                <span>लॉगिन करें (सुरक्षित प्रवेश) →</span>
+                <span>{t.login.loginBtn}</span>
               )}
             </button>
 
             <div className="login-security-footer">
               <div className="security-icon-row">
-                <span>🔒 256-Bit SSL एन्क्रिप्टेड</span>
+                <span>{t.login.securitySSL}</span>
                 <span>•</span>
-                <span>JWT सेशन</span>
+                <span>{t.login.securityJWT}</span>
                 <span>•</span>
-                <span>राज्य डेटा केंद्र (SDC)</span>
+                <span>{t.login.securitySDC}</span>
               </div>
-              <p className="legal-notice">
-                यह प्रणाली केवल अधिकृत सरकारी अधिकारियों के शासकीय उपयोग के लिए है।
-              </p>
+              <p className="legal-notice">{t.login.legalNotice}</p>
             </div>
           </form>
         </div>
@@ -239,7 +241,6 @@ export default function LoginPage() {
         .login-root {
           display: flex;
           min-height: 100dvh;
-          font-family: var(--font-devanagari);
           background-color: var(--clr-surface);
         }
 
@@ -278,19 +279,6 @@ export default function LoginPage() {
           display: flex;
           align-items: center;
           gap: 1.25rem;
-        }
-
-        .emblem-shield {
-          width: 58px;
-          height: 58px;
-          border-radius: 14px;
-          background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fbd38d;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
         }
 
         .dept-tag {
@@ -388,6 +376,8 @@ export default function LoginPage() {
           border-top: 1px solid rgba(255, 255, 255, 0.15);
           font-size: 0.78rem;
           color: rgba(255, 255, 255, 0.7);
+          flex-wrap: wrap;
+          gap: 0.5rem;
         }
 
         .status-pill {
@@ -500,6 +490,7 @@ export default function LoginPage() {
           display: flex;
           align-items: center;
           justify-content: center;
+          font-family: inherit;
         }
 
         .btn-autofill:hover {
@@ -603,7 +594,7 @@ export default function LoginPage() {
           border: 1.5px solid var(--clr-border);
           border-radius: 10px;
           padding: 0.75rem 2.85rem 0.75rem 2.85rem;
-          font-family: var(--font-devanagari);
+          font-family: inherit;
           font-size: 0.95rem;
           color: var(--clr-text);
           background: #ffffff;
@@ -642,7 +633,7 @@ export default function LoginPage() {
           border: none;
           border-radius: 10px;
           padding: 0.95rem 1.5rem;
-          font-family: var(--font-devanagari);
+          font-family: inherit;
           font-size: 1rem;
           font-weight: 600;
           cursor: pointer;
@@ -702,6 +693,7 @@ export default function LoginPage() {
           color: var(--clr-text-muted);
           font-weight: 500;
           font-family: var(--font-sans);
+          flex-wrap: wrap;
         }
 
         .legal-notice {
